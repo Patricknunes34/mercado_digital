@@ -1,0 +1,25 @@
+{
+  "name": "mercado-digital-ecommerce",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sistema E-commerce Empresarial - Mercado Digital",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "server": "node server.js",
+    "build": "echo 'Build não necessário para este projeto'",
+    "lint": "echo 'Lint não configurado'",
+    "preview": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mysql2": "^3.6.5",
+    "cors": "^2.8.5",
+    "open": "^8.4.2"
+  },
+  "devDependencies": {},
+  "keywords": ["ecommerce", "mysql", "express", "nodejs"],
+  "author": "Mercado Digital",
+  "license": "MIT"
+}
