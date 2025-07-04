@@ -90,12 +90,13 @@ class MercadoDigital {
 
     // ==================== USER INTERFACE ====================
     
-    async initUserInterface() {
-        await this.loadProdutos();
-        this.renderUserProdutos();
-        this.updateCartCount();
-        this.showSection('user-produtos');
-    }
+async initUserInterface() {
+    await this.loadProdutos();
+    this.renderUserProdutos();
+    this.updateCartCount();
+    this.setupFormHandlers(); // Add this line to define toggleCheckoutFields
+    this.showSection('user-produtos');
+}
 
     renderUserProdutos() {
         const grid = document.getElementById('user-produtos-grid');
@@ -259,35 +260,36 @@ class MercadoDigital {
     }
 
     finalizarCompra() {
-        if (this.carrinho.length === 0) return;
+    if (this.carrinho.length === 0) return;
+    
+    // Preencher resumo do checkout
+    const checkoutItems = document.getElementById('checkout-items');
+    const checkoutTotal = document.getElementById('checkout-total');
+    
+    if (!checkoutItems || !checkoutTotal) return;
+    
+    checkoutItems.innerHTML = '';
+    let total = 0;
+    
+    this.carrinho.forEach(item => {
+        const preco = parseFloat(item.preco) || 0;
+        const quantidade = parseInt(item.quantidade) || 0;
+        const itemTotal = preco * quantidade;
+        total += itemTotal;
         
-        // Preencher resumo do checkout
-        const checkoutItems = document.getElementById('checkout-items');
-        const checkoutTotal = document.getElementById('checkout-total');
-        
-        if (!checkoutItems || !checkoutTotal) return;
-        
-        checkoutItems.innerHTML = '';
-        let total = 0;
-        
-        this.carrinho.forEach(item => {
-            const preco = parseFloat(item.preco) || 0;
-            const quantidade = parseInt(item.quantidade) || 0;
-            const itemTotal = preco * quantidade;
-            total += itemTotal;
-            
-            const checkoutItem = document.createElement('div');
-            checkoutItem.className = 'checkout-item';
-            checkoutItem.innerHTML = `
-                <span>${item.nome} x ${quantidade}</span>
-                <span>R$ ${itemTotal.toFixed(2)}</span>
-            `;
-            checkoutItems.appendChild(checkoutItem);
-        });
-        
-        checkoutTotal.textContent = `R$ ${total.toFixed(2)}`;
-        
-        openModal('checkoutModal');
+        const checkoutItem = document.createElement('div');
+        checkoutItem.className = 'checkout-item';
+        checkoutItem.innerHTML = `
+            <span>${item.nome} x ${quantidade}</span>
+            <span>R$ ${itemTotal.toFixed(2)}</span>
+        `;
+        checkoutItems.appendChild(checkoutItem);
+    });
+    
+    checkoutTotal.textContent = `R$ ${total.toFixed(2)}`;
+    
+    openModal('checkoutModal');
+    toggleCheckoutFields(); // Add this line to set initial field visibility
     }
 
     async processarCompra(event) {
@@ -1099,28 +1101,32 @@ class MercadoDigital {
         };
 
         // Toggle campos checkout
-        window.toggleCheckoutFields = () => {
-            const tipoRadio = document.querySelector('input[name="tipoCliente"]:checked');
-            if (!tipoRadio) return;
-            
-            const tipo = tipoRadio.value;
-            const camposPF = document.getElementById('checkout-campos-pf');
-            const camposPJ = document.getElementById('checkout-campos-pj');
-            
-            if (!camposPF || !camposPJ) return;
-            
-            if (tipo === 'PF') {
-                camposPF.style.display = 'block';
-                camposPJ.style.display = 'none';
-                // Limpar campos PJ
-                camposPJ.querySelectorAll('input').forEach(input => input.value = '');
-            } else {
-                camposPF.style.display = 'none';
-                camposPJ.style.display = 'block';
-                // Limpar campos PF
-                camposPF.querySelectorAll('input').forEach(input => input.value = '');
-            }
-        };
+            window.toggleCheckoutFields = () => {
+        const tipoRadio = document.querySelector('input[name="tipoCliente"]:checked');
+        if (!tipoRadio) {
+            console.error('No tipoCliente radio button selected');
+            return;
+        }
+        
+        const tipo = tipoRadio.value;
+        const camposPF = document.getElementById('checkout-campos-pf');
+        const camposPJ = document.getElementById('checkout-campos-pj');
+        
+        if (!camposPF || !camposPJ) {
+            console.error('Checkout fields not found');
+            return;
+        }
+        
+        if (tipo === 'PF') {
+            camposPF.style.display = 'block';
+            camposPJ.style.display = 'none';
+            camposPJ.querySelectorAll('input').forEach(input => input.value = '');
+        } else {
+            camposPF.style.display = 'none';
+            camposPJ.style.display = 'block';
+            camposPF.querySelectorAll('input').forEach(input => input.value = '');
+        }
+    };
 
         // Adicionar produto ao pedido
         window.adicionarProdutoPedido = () => {
