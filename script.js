@@ -90,13 +90,13 @@ class MercadoDigital {
 
     // ==================== USER INTERFACE ====================
     
-async initUserInterface() {
-    await this.loadProdutos();
-    this.renderUserProdutos();
-    this.updateCartCount();
-    this.setupFormHandlers(); // Add this line to define toggleCheckoutFields
-    this.showSection('user-produtos');
-}
+    async initUserInterface() {
+        await this.loadProdutos();
+        this.renderUserProdutos();
+        this.updateCartCount();
+        this.setupFormHandlers(); // Add this line to define toggleCheckoutFields
+        this.showSection('user-produtos');
+    }
 
     renderUserProdutos() {
         const grid = document.getElementById('user-produtos-grid');
@@ -260,36 +260,36 @@ async initUserInterface() {
     }
 
     finalizarCompra() {
-    if (this.carrinho.length === 0) return;
-    
-    // Preencher resumo do checkout
-    const checkoutItems = document.getElementById('checkout-items');
-    const checkoutTotal = document.getElementById('checkout-total');
-    
-    if (!checkoutItems || !checkoutTotal) return;
-    
-    checkoutItems.innerHTML = '';
-    let total = 0;
-    
-    this.carrinho.forEach(item => {
-        const preco = parseFloat(item.preco) || 0;
-        const quantidade = parseInt(item.quantidade) || 0;
-        const itemTotal = preco * quantidade;
-        total += itemTotal;
+        if (this.carrinho.length === 0) return;
         
-        const checkoutItem = document.createElement('div');
-        checkoutItem.className = 'checkout-item';
-        checkoutItem.innerHTML = `
-            <span>${item.nome} x ${quantidade}</span>
-            <span>R$ ${itemTotal.toFixed(2)}</span>
-        `;
-        checkoutItems.appendChild(checkoutItem);
-    });
-    
-    checkoutTotal.textContent = `R$ ${total.toFixed(2)}`;
-    
-    openModal('checkoutModal');
-    toggleCheckoutFields(); // Add this line to set initial field visibility
+        // Preencher resumo do checkout
+        const checkoutItems = document.getElementById('checkout-items');
+        const checkoutTotal = document.getElementById('checkout-total');
+        
+        if (!checkoutItems || !checkoutTotal) return;
+        
+        checkoutItems.innerHTML = '';
+        let total = 0;
+        
+        this.carrinho.forEach(item => {
+            const preco = parseFloat(item.preco) || 0;
+            const quantidade = parseInt(item.quantidade) || 0;
+            const itemTotal = preco * quantidade;
+            total += itemTotal;
+            
+            const checkoutItem = document.createElement('div');
+            checkoutItem.className = 'checkout-item';
+            checkoutItem.innerHTML = `
+                <span>${item.nome} x ${quantidade}</span>
+                <span>R$ ${itemTotal.toFixed(2)}</span>
+            `;
+            checkoutItems.appendChild(checkoutItem);
+        });
+        
+        checkoutTotal.textContent = `R$ ${total.toFixed(2)}`;
+        
+        openModal('checkoutModal');
+        toggleCheckoutFields(); // Add this line to set initial field visibility
     }
 
     async processarCompra(event) {
@@ -297,46 +297,97 @@ async initUserInterface() {
         const formData = new FormData(event.target);
         const clienteData = Object.fromEntries(formData.entries());
         
+        // Client-side validation
+        if (!clienteData.tipoCliente) {
+            this.showNotification('Selecione o tipo de cliente (PF/PJ)', 'error');
+            return;
+        }
+        if (!clienteData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteData.email)) {
+            this.showNotification('Email inválido', 'error');
+            return;
+        }
+        if (!clienteData.telefone) {
+            this.showNotification('Telefone é obrigatório', 'error');
+            return;
+        }
+        if (!clienteData.endereco) {
+            this.showNotification('Endereço é obrigatório', 'error');
+            return;
+        }
+        if (!clienteData.formaPagamento) {
+            this.showNotification('Selecione uma forma de pagamento', 'error');
+            return;
+        }
+        if (clienteData.tipoCliente === 'PJ') {
+    if (!clienteData.razaoSocial) {
+        this.showNotification('Razão Social é obrigatória para Pessoa Jurídica', 'error');
+        return;
+    }
+    if (!clienteData.cnpj || !/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(clienteData.cnpj)) {
+        this.showNotification('CNPJ inválido (formato: 00.000.000/0000-00)', 'error');
+        return;
+    }
+    if (!clienteData.inscricaoEstadual) {
+        this.showNotification('Inscrição Estadual é obrigatória para Pessoa Jurídica', 'error');
+        return;
+    }
+
+        } else if (clienteData.tipoCliente === 'PJ') {
+            if (!clienteData.razaoSocial) {
+                this.showNotification('Razão Social é obrigatória para Pessoa Jurídica', 'error');
+                return;
+            }
+            if (!clienteData.cnpj || !/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(clienteData.cnpj)) {
+                this.showNotification('CNPJ inválido (formato: 00.000.000/0000-00)', 'error');
+                return;
+            }
+        }
+        if (this.carrinho.length === 0) {
+            this.showNotification('O carrinho está vazio', 'error');
+            return;
+        }
+
         try {
-            // Preparar dados do cliente baseado no tipo
             const apiData = {
                 tipo: clienteData.tipoCliente,
-                nome: clienteData.nome,
-                cpf: clienteData.cpf,
-                razaoSocial: clienteData.razaoSocial,
-                cnpj: clienteData.cnpj,
                 email: clienteData.email,
                 telefone: clienteData.telefone,
                 endereco: clienteData.endereco
             };
 
-            // Criar cliente
+            if (clienteData.tipoCliente === 'PF') {
+                apiData.nome = clienteData.nome;
+                apiData.cpf = clienteData.cpf;
+                apiData.dataNascimento = clienteData.dataNascimento || null;
+            } else if (clienteData.tipoCliente === 'PJ') {
+                apiData.razaoSocial = clienteData.razaoSocial;
+                apiData.nomeFantasia = clienteData.nomeFantasia || null;
+                apiData.cnpj = clienteData.cnpj;
+                apiData.inscricaoEstadual = clienteData.inscricaoEstadual || null;
+            }
+
             const clienteResult = await this.apiRequest('/clientes', {
                 method: 'POST',
                 body: JSON.stringify(apiData)
             });
             
             if (clienteResult.success) {
-                // Calcular total do carrinho
                 const totalCarrinho = this.carrinho.reduce((total, item) => {
                     const preco = parseFloat(item.preco) || 0;
                     const quantidade = parseInt(item.quantidade) || 0;
                     return total + (preco * quantidade);
                 }, 0);
 
-                // Preparar produtos para o pedido
                 const produtos = this.carrinho.map(item => ({
                     id_produto: item.id,
                     quantidade: parseInt(item.quantidade) || 0
                 }));
 
-                // Preparar formas de pagamento
                 const formasPagamento = [{
                     tipo: clienteData.formaPagamento,
                     valor: totalCarrinho
                 }];
 
-                // Criar pedido
                 const pedidoData = {
                     id_conta: clienteResult.contaId,
                     data_pedido: new Date().toISOString().split('T')[0],
@@ -357,7 +408,11 @@ async initUserInterface() {
                     closeModal('checkoutModal');
                     this.showSection('user-pedidos');
                     await this.loadUserPedidos();
+                } else {
+                    this.showNotification('Erro ao criar pedido', 'error');
                 }
+            } else {
+                this.showNotification('Erro ao criar cliente', 'error');
             }
         } catch (error) {
             console.error('Erro ao processar compra:', error);
@@ -623,7 +678,6 @@ async initUserInterface() {
                 tipo: clienteData.tipo,
                 nome: clienteData.nome,
                 cpf: clienteData.cpf,
-                rg: clienteData.rg,
                 dataNascimento: clienteData.dataNascimento,
                 razaoSocial: clienteData.razaoSocial,
                 nomeFantasia: clienteData.nomeFantasia,
@@ -713,6 +767,7 @@ async initUserInterface() {
         }
         this.populateSelects();
     }
+    
 
     renderProdutos() {
         const grid = document.getElementById('produtos-grid');
@@ -1101,32 +1156,32 @@ async initUserInterface() {
         };
 
         // Toggle campos checkout
-            window.toggleCheckoutFields = () => {
-        const tipoRadio = document.querySelector('input[name="tipoCliente"]:checked');
-        if (!tipoRadio) {
-            console.error('No tipoCliente radio button selected');
-            return;
-        }
-        
-        const tipo = tipoRadio.value;
-        const camposPF = document.getElementById('checkout-campos-pf');
-        const camposPJ = document.getElementById('checkout-campos-pj');
-        
-        if (!camposPF || !camposPJ) {
-            console.error('Checkout fields not found');
-            return;
-        }
-        
-        if (tipo === 'PF') {
-            camposPF.style.display = 'block';
-            camposPJ.style.display = 'none';
-            camposPJ.querySelectorAll('input').forEach(input => input.value = '');
-        } else {
-            camposPF.style.display = 'none';
-            camposPJ.style.display = 'block';
-            camposPF.querySelectorAll('input').forEach(input => input.value = '');
-        }
-    };
+        window.toggleCheckoutFields = () => {
+            const tipoRadio = document.querySelector('input[name="tipoCliente"]:checked');
+            if (!tipoRadio) {
+                console.error('No tipoCliente radio button selected');
+                return;
+            }
+            
+            const tipo = tipoRadio.value;
+            const camposPF = document.getElementById('checkout-campos-pf');
+            const camposPJ = document.getElementById('checkout-campos-pj');
+            
+            if (!camposPF || !camposPJ) {
+                console.error('Checkout fields not found');
+                return;
+            }
+            
+            if (tipo === 'PF') {
+                camposPF.style.display = 'block';
+                camposPJ.style.display = 'none';
+                camposPJ.querySelectorAll('input').forEach(input => input.value = '');
+            } else {
+                camposPF.style.display = 'none';
+                camposPJ.style.display = 'block';
+                camposPF.querySelectorAll('input').forEach(input => input.value = '');
+            }
+        };
 
         // Adicionar produto ao pedido
         window.adicionarProdutoPedido = () => {
@@ -1213,12 +1268,10 @@ async initUserInterface() {
         if (cliente.tipo === 'PF') {
             const nomeInput = document.getElementById('nome');
             const cpfInput = document.getElementById('cpf');
-            const rgInput = document.getElementById('rg');
             const dataNascInput = document.getElementById('data-nascimento');
             
             if (nomeInput) nomeInput.value = cliente.nome || '';
             if (cpfInput) cpfInput.value = cliente.cpf || '';
-            if (rgInput) rgInput.value = cliente.rg || '';
             if (dataNascInput) dataNascInput.value = cliente.dataNascimento || '';
         } else {
             const razaoSocialInput = document.getElementById('razao-social');
@@ -1336,15 +1389,14 @@ function closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'none';
-        // Limpar formulários
-        const form = modal.querySelector('form');
-        if (form) form.reset();
-        
-        // Resetar estados de edição
-        if (modalId === 'clienteModal') {
-            mercado.editandoCliente = null;
-        } else if (modalId === 'produtoModal') {
-            mercado.editandoProduto = null;
+    }
+    if (modalId === 'checkoutModal') {
+        const form = document.getElementById('checkoutForm');
+        if (form) {
+            form.reset();
+        }
+        if (typeof toggleCheckoutFields === 'function') {
+            toggleCheckoutFields(); 
         }
     }
 }
@@ -1424,6 +1476,9 @@ function filtrarProdutos() {
     mercado.filtrarProdutos();
 }
 
+function finalizarCompra() {
+    mercado.finalizarCompra();
+}
+
 // Inicializar sistema
 const mercado = new MercadoDigital();
-window.finalizarCompra = () => mercado.finalizarCompra();
