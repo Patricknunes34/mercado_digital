@@ -63,41 +63,55 @@ app.get('/api/clientes', async (req, res) => {
 app.post('/api/clientes', async (req, res) => {
     try {
         const connection = await connectDB();
-        const { tipo, nome, cpf, rg, dataNascimento, razaoSocial, nomeFantasia, cnpj, inscricaoEstadual, email, telefone, endereco } = req.body;
-        
+        const { tipo, nome, cpf, dataNascimento, razaoSocial, nomeFantasia, cnpj, inscricaoEstadual, email, telefone, endereco } = req.body;
+
+        // Validações
+        if (!tipo || !['PF', 'PJ'].includes(tipo)) {
+            return res.status(400).json({ error: 'Tipo de cliente inválido' });
+        }
+        if (!email || !telefone || !endereco) {
+            return res.status(400).json({ error: 'Email, telefone e endereço são obrigatórios' });
+        }
+        if (tipo === 'PF' && (!nome || !cpf)) {
+            return res.status(400).json({ error: 'Nome e CPF são obrigatórios para Pessoa Física' });
+        }
+        if (tipo === 'PJ' && (!razaoSocial || !cnpj || !inscricaoEstadual)) {
+            return res.status(400).json({ error: 'Razão Social, CNPJ e Inscrição Estadual são obrigatórios para Pessoa Jurídica' });
+        }
+
         await connection.beginTransaction();
-        
+
         let clienteId;
         let contaClientePF = null;
         let contaClientePJ = null;
-        
+
         if (tipo === 'PF') {
             // Inserir cliente PF
             const [result] = await connection.execute(
-                'INSERT INTO cliente_pf (nome, cpf, rg, data_nascimento, email, telefone, endereco) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [nome, cpf, rg || null, dataNascimento || null, email, telefone, endereco]
+                'INSERT INTO cliente_pf (nome, cpf, data_nascimento, email, telefone, endereco) VALUES (?, ?, ?, ?, ?, ?)',
+                [nome, cpf || null, dataNascimento || null, email, telefone, endereco]
             );
             clienteId = result.insertId;
             contaClientePF = clienteId;
         } else if (tipo === 'PJ') {
             // Inserir cliente PJ
             const [result] = await connection.execute(
-                'INSERT INTO cliente_pj (razao_social, nome_fantasia, cnpj, inscricao_estadual, email, telefone, endereco) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [razaoSocial, nomeFantasia || null, cnpj, inscricaoEstadual || null, email, telefone, endereco]
+                'INSERT INTO cliente_pj (razao_social, cnpj, nome_fantasia, inscricao_estadual, email, telefone, endereco) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [razaoSocial, cnpj, nomeFantasia || null, inscricaoEstadual, email, telefone, endereco]
             );
             clienteId = result.insertId;
             contaClientePJ = clienteId;
         }
-        
+
         // Inserir conta
         const [contaResult] = await connection.execute(
             'INSERT INTO conta (tipo, id_cliente_pf, id_cliente_pj) VALUES (?, ?, ?)',
             [tipo, contaClientePF, contaClientePJ]
         );
-        
+
         await connection.commit();
         await connection.end();
-        
+
         res.json({ 
             success: true, 
             contaId: contaResult.insertId,
@@ -105,8 +119,8 @@ app.post('/api/clientes', async (req, res) => {
             message: 'Cliente criado com sucesso!' 
         });
     } catch (error) {
-        console.error('Erro ao criar cliente:', error);
-        res.status(500).json({ error: 'Erro ao criar cliente' });
+        console.error('Erro ao criar cliente:', error.message, error.stack);
+        res.status(500).json({ error: 'Erro ao criar cliente', details: error.message });
     }
 });
 
@@ -122,13 +136,11 @@ app.get('/api/clientes/:id', async (req, res) => {
                 c.tipo,
                 pf.nome,
                 pf.cpf,
-                pf.rg,
                 pf.data_nascimento,
                 pf.email as pf_email,
                 pf.telefone as pf_telefone,
                 pf.endereco as pf_endereco,
                 pj.razao_social,
-                pj.nome_fantasia,
                 pj.cnpj,
                 pj.inscricao_estadual,
                 pj.email as pj_email,
@@ -159,11 +171,9 @@ app.get('/api/clientes/:id', async (req, res) => {
         if (cliente.tipo === 'PF') {
             response.nome = cliente.nome;
             response.cpf = cliente.cpf;
-            response.rg = cliente.rg;
             response.dataNascimento = cliente.data_nascimento;
         } else {
             response.razaoSocial = cliente.razao_social;
-            response.nomeFantasia = cliente.nome_fantasia;
             response.cnpj = cliente.cnpj;
             response.inscricaoEstadual = cliente.inscricao_estadual;
         }
@@ -180,7 +190,7 @@ app.put('/api/clientes/:id', async (req, res) => {
     try {
         const connection = await connectDB();
         const { id } = req.params;
-        const { tipo, nome, cpf, rg, dataNascimento, razaoSocial, nomeFantasia, cnpj, inscricaoEstadual, email, telefone, endereco } = req.body;
+        const { tipo, nome, cpf, dataNascimento, razaoSocial, nomeFantasia, cnpj, inscricaoEstadual, email, telefone, endereco } = req.body;
         
         await connection.beginTransaction();
         
@@ -193,12 +203,12 @@ app.put('/api/clientes/:id', async (req, res) => {
         
         if (tipo === 'PF' && conta[0].id_cliente_pf) {
             await connection.execute(
-                'UPDATE cliente_pf SET nome = ?, cpf = ?, rg = ?, data_nascimento = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?',
-                [nome, cpf, rg || null, dataNascimento || null, email, telefone, endereco, conta[0].id_cliente_pf]
+                'UPDATE cliente_pf SET nome = ?, cpf = ?, data_nascimento = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?',
+                [nome, cpf|| null, dataNascimento || null, email, telefone, endereco, conta[0].id_cliente_pf]
             );
         } else if (tipo === 'PJ' && conta[0].id_cliente_pj) {
             await connection.execute(
-                'UPDATE cliente_pj SET razao_social = ?, nome_fantasia = ?, cnpj = ?, inscricao_estadual = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?',
+                'UPDATE cliente_pj SET razao_social = ?, cnpj = ?, inscricao_estadual = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?',
                 [razaoSocial, nomeFantasia || null, cnpj, inscricaoEstadual || null, email, telefone, endereco, conta[0].id_cliente_pj]
             );
         }
@@ -388,16 +398,49 @@ app.post('/api/pedidos', async (req, res) => {
     try {
         const connection = await connectDB();
         const { id_conta, data_pedido, produtos, formas_pagamento, observacoes } = req.body;
-        
+
+        // Validate required fields
+        if (!id_conta) {
+            return res.status(400).json({ error: 'ID da conta é obrigatório' });
+        }
+        if (!data_pedido || !/^\d{4}-\d{2}-\d{2}$/.test(data_pedido)) {
+            return res.status(400).json({ error: 'Data do pedido inválida (formato: YYYY-MM-DD)' });
+        }
+        if (!produtos || !Array.isArray(produtos) || produtos.length === 0) {
+            return res.status(400).json({ error: 'Lista de produtos é obrigatória e não pode estar vazia' });
+        }
+        if (!formas_pagamento || !Array.isArray(formas_pagamento) || formas_pagamento.length === 0) {
+            return res.status(400).json({ error: 'Forma de pagamento é obrigatória' });
+        }
+
+        // Validate produtos
+        for (const item of produtos) {
+            if (!item.id_produto || !item.quantidade || item.quantidade <= 0) {
+                return res.status(400).json({ error: 'Produto inválido: id_produto e quantidade são obrigatórios' });
+            }
+        }
+
+        // Validate formas_pagamento
+        for (const pagamento of formas_pagamento) {
+            if (!pagamento.tipo || !['dinheiro', 'cartao-credito', 'cartao-debito', 'pix', 'boleto'].includes(pagamento.tipo)) {
+                return res.status(400).json({ error: 'Tipo de pagamento inválido' });
+            }
+            if (!pagamento.valor || pagamento.valor <= 0) {
+                return res.status(400).json({ error: 'Valor do pagamento inválido' });
+            }
+        }
+
         await connection.beginTransaction();
         
         // Calcular total
         let total = 0;
         for (const item of produtos) {
             const [produtoData] = await connection.execute('SELECT preco FROM produtos WHERE id = ?', [item.id_produto]);
-            if (produtoData.length > 0) {
-                total += produtoData[0].preco * item.quantidade;
+            if (produtoData.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ error: `Produto com ID ${item.id_produto} não encontrado` });
             }
+            total += produtoData[0].preco * item.quantidade;
         }
         
         // Inserir pedido
@@ -433,9 +476,12 @@ app.post('/api/pedidos', async (req, res) => {
         const previsaoEntrega = new Date();
         previsaoEntrega.setDate(previsaoEntrega.getDate() + 7);
         
-        // Buscar endereço do cliente
         const [clienteData] = await connection.execute('SELECT endereco FROM view_clientes WHERE id = ?', [id_conta]);
-        const endereco = clienteData[0]?.endereco || 'Endereço não informado';
+        if (clienteData.length === 0) {
+            await connection.rollback();
+            return res.status(400).json({ error: 'Conta não encontrada' });
+        }
+        const endereco = clienteData[0].endereco || 'Endereço não informado';
         
         await connection.execute(
             'INSERT INTO entregas (id_pedido, codigo_rastreio, endereco_entrega, previsao_entrega) VALUES (?, ?, ?, ?)',
