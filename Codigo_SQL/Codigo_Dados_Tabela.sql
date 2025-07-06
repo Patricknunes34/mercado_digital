@@ -165,4 +165,8 @@ SELECT * FROM view_clientes;
 SELECT * FROM produtos WHERE status = 'ativo';
 SELECT * FROM pedidos WHERE status = 'pendente';
 
+ALTER TABLE itens_pedido ADD FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE;
+ALTER TABLE pagamento ADD FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE;
+ALTER TABLE entregas ADD FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE;
+
 drop database e_comerce;
