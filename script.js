@@ -292,6 +292,94 @@ class MercadoDigital {
         toggleCheckoutFields(); // Add this line to set initial field visibility
     }
 
+    // Verificar se documento já existe
+    async verificarDocumentoExistente(tipo, documento) {
+        try {
+            const response = await this.apiRequest(`/clientes/verificar-documento?tipo=${tipo}&documento=${encodeURIComponent(documento)}`);
+            return response;
+        } catch (error) {
+            console.error('Erro ao verificar documento:', error);
+            return { exists: false };
+        }
+    }
+
+    // Mostrar modal de confirmação para documento existente
+    mostrarModalDocumentoExistente(clienteExistente, callback) {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.style.zIndex = '10001';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Cliente já cadastrado</h2>
+                </div>
+                <div style="padding: 1.5rem;">
+                    <p style="margin-bottom: 1rem;">Este documento já está cadastrado no sistema:</p>
+                    <div style="background: var(--background-color); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
+                        <strong>Nome/Razão Social:</strong> ${clienteExistente.nome || clienteExistente.razao_social}<br>
+                        <strong>Email:</strong> ${clienteExistente.email}<br>
+                        <strong>Telefone:</strong> ${clienteExistente.telefone}
+                    </div>
+                    <p>Deseja usar este cliente para o pedido?</p>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="mercado.usarClienteExistente(${clienteExistente.conta_id}); this.closest('.modal').remove();">Usar Cliente</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Usar cliente existente
+    async usarClienteExistente(contaId) {
+        try {
+            const totalCarrinho = this.carrinho.reduce((total, item) => {
+                const preco = parseFloat(item.preco) || 0;
+                const quantidade = parseInt(item.quantidade) || 0;
+                return total + (preco * quantidade);
+            }, 0);
+
+            const produtos = this.carrinho.map(item => ({
+                id_produto: item.id,
+                quantidade: parseInt(item.quantidade) || 0
+            }));
+
+            const formData = new FormData(document.getElementById('checkoutForm'));
+            const formasPagamento = [{
+                tipo: formData.get('formaPagamento'),
+                valor: totalCarrinho
+            }];
+
+            const pedidoData = {
+                id_conta: contaId,
+                data_pedido: new Date().toISOString().split('T')[0],
+                produtos: produtos,
+                formas_pagamento: formasPagamento,
+                observacoes: 'Pedido realizado pelo usuário com cliente existente'
+            };
+
+            const pedidoResult = await this.apiRequest('/pedidos', {
+                method: 'POST',
+                body: JSON.stringify(pedidoData)
+            });
+            
+            if (pedidoResult.success) {
+                this.showNotification('Pedido realizado com sucesso!', 'success');
+                this.carrinho = [];
+                this.updateCartCount();
+                closeModal('checkoutModal');
+                this.showSection('user-pedidos');
+                await this.loadUserPedidos();
+            } else {
+                this.showNotification('Erro ao criar pedido', 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao usar cliente existente:', error);
+            this.showNotification('Erro ao processar pedido', 'error');
+        }
+    }
+
     async processarCompra(event) {
         event.preventDefault();
         const formData = new FormData(event.target);
@@ -318,20 +406,24 @@ class MercadoDigital {
             this.showNotification('Selecione uma forma de pagamento', 'error');
             return;
         }
-        if (clienteData.tipoCliente === 'PJ') {
-    if (!clienteData.razaoSocial) {
-        this.showNotification('Razão Social é obrigatória para Pessoa Jurídica', 'error');
-        return;
-    }
-    if (!clienteData.cnpj || !/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(clienteData.cnpj)) {
-        this.showNotification('CNPJ inválido (formato: 00.000.000/0000-00)', 'error');
-        return;
-    }
-    if (!clienteData.inscricaoEstadual) {
-        this.showNotification('Inscrição Estadual é obrigatória para Pessoa Jurídica', 'error');
-        return;
-    }
 
+        // Validações específicas por tipo
+        if (clienteData.tipoCliente === 'PF') {
+            if (!clienteData.nome) {
+                this.showNotification('Nome é obrigatório para Pessoa Física', 'error');
+                return;
+            }
+            if (!clienteData.cpf || !/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(clienteData.cpf)) {
+                this.showNotification('CPF inválido (formato: 000.000.000-00)', 'error');
+                return;
+            }
+
+            // Verificar se CPF já existe
+            const verificacao = await this.verificarDocumentoExistente('PF', clienteData.cpf);
+            if (verificacao.exists) {
+                this.mostrarModalDocumentoExistente(verificacao.cliente);
+                return;
+            }
         } else if (clienteData.tipoCliente === 'PJ') {
             if (!clienteData.razaoSocial) {
                 this.showNotification('Razão Social é obrigatória para Pessoa Jurídica', 'error');
@@ -341,7 +433,19 @@ class MercadoDigital {
                 this.showNotification('CNPJ inválido (formato: 00.000.000/0000-00)', 'error');
                 return;
             }
+            if (!clienteData.inscricaoEstadual) {
+                this.showNotification('Inscrição Estadual é obrigatória para Pessoa Jurídica', 'error');
+                return;
+            }
+
+            // Verificar se CNPJ já existe
+            const verificacao = await this.verificarDocumentoExistente('PJ', clienteData.cnpj);
+            if (verificacao.exists) {
+                this.mostrarModalDocumentoExistente(verificacao.cliente);
+                return;
+            }
         }
+
         if (this.carrinho.length === 0) {
             this.showNotification('O carrinho está vazio', 'error');
             return;
@@ -485,6 +589,26 @@ class MercadoDigital {
         this.entregas.forEach(entrega => {
             const card = document.createElement('div');
             card.className = 'entrega-card';
+            
+            let acoesBotao = '';
+            if (entrega.status === 'entregue') {
+                acoesBotao = `
+                    <div class="entrega-actions">
+                        <button class="btn btn-success btn-small" onclick="mercado.confirmarEntrega(${entrega.id})">
+                            Confirmar Recebimento
+                        </button>
+                    </div>
+                `;
+            } else if (entrega.status === 'confirmada') {
+                acoesBotao = `
+                    <div class="entrega-actions">
+                        <div style="color: var(--success-color); font-weight: 600; text-align: center; padding: 0.5rem;">
+                            ✅ Entrega confirmada
+                        </div>
+                    </div>
+                `;
+            }
+
             card.innerHTML = `
                 <div class="entrega-header">
                     <span class="entrega-id">Entrega #${entrega.id}</span>
@@ -508,20 +632,28 @@ class MercadoDigital {
                         <span>${entrega.status}</span>
                     </div>
                 </div>
-                ${entrega.status === 'entregue' ? `
-                    <div class="entrega-actions">
-                        <button class="btn btn-success btn-small" onclick="mercado.confirmarEntrega(${entrega.id})">
-                            Confirmar Recebimento
-                        </button>
-                    </div>
-                ` : ''}
+                ${acoesBotao}
             `;
             grid.appendChild(card);
         });
     }
 
-    confirmarEntrega(entregaId) {
-        this.showNotification('Entrega confirmada! Obrigado pela preferência.', 'success');
+    async confirmarEntrega(entregaId) {
+        try {
+            const result = await this.apiRequest(`/entregas/${entregaId}/confirmar`, {
+                method: 'PUT'
+            });
+
+            if (result.success) {
+                this.showNotification('Entrega confirmada! Obrigado pela preferência.', 'success');
+                // Recarregar entregas e pedidos para atualizar o status
+                await this.loadUserEntregas();
+                await this.loadUserPedidos();
+            }
+        } catch (error) {
+            console.error('Erro ao confirmar entrega:', error);
+            this.showNotification('Erro ao confirmar entrega', 'error');
+        }
     }
 
     filtrarProdutos() {
@@ -972,9 +1104,21 @@ class MercadoDigital {
         }
     }
 
-    excluirPedido(id) {
-        if (confirm('Tem certeza que deseja excluir este pedido?')) {
-            this.showNotification('Funcionalidade em desenvolvimento', 'warning');
+    async excluirPedido(id) {
+        if (confirm('Tem certeza que deseja excluir este pedido?'))  {
+            try {
+                const result = await this.apiRequest(`/pedidos/${id}    `, { // Corrigido para /pedidos e estrutura de  objeto
+                    method: 'DELETE'
+                });
+                if (result.success) {
+                    this.showNotification('Pedido excluído com  sucesso!', 'success');
+                    await this.loadPedidos(); // Recarrega a lista de pedidos
+                    await this.loadDashboard(); // Mantém o     recarregamento do dashboard
+                }
+            } catch (error) {
+                console.error('Erro ao excluir pedido:', error);
+                this.showNotification('Erro ao excluir pedido', 'error');
+            }
         }
     }
 
@@ -1006,6 +1150,21 @@ class MercadoDigital {
         grid.innerHTML = '';
 
         this.entregas.forEach(entrega => {
+            let botaoAtualizacao = '';
+            if (entrega.status === 'confirmada') {
+                botaoAtualizacao = `
+                    <div style="color: var(--success-color); font-weight: 600; text-align: center; padding: 0.5rem;">
+                        ✅ Entrega confirmada pelo cliente
+                    </div>
+                `;
+            } else {
+                botaoAtualizacao = `
+                    <button class="btn btn-small btn-primary" onclick="mercado.atualizarStatusEntrega(${entrega.id})">
+                        Atualizar Status
+                    </button>
+                `;
+            }
+
             const card = document.createElement('div');
             card.className = 'entrega-card';
             card.innerHTML = `
@@ -1040,9 +1199,7 @@ class MercadoDigital {
                     </div>
                 </div>
                 <div class="action-buttons" style="margin-top: 1rem;">
-                    <button class="btn btn-small btn-primary" onclick="mercado.atualizarStatusEntrega(${entrega.id})">
-                        Atualizar Status
-                    </button>
+                    ${botaoAtualizacao}
                 </div>
             `;
             grid.appendChild(card);
@@ -1275,12 +1432,10 @@ class MercadoDigital {
             if (dataNascInput) dataNascInput.value = cliente.dataNascimento || '';
         } else {
             const razaoSocialInput = document.getElementById('razao-social');
-            const nomeFantasiaInput = document.getElementById('nome-fantasia');
             const cnpjInput = document.getElementById('cnpj');
             const inscricaoEstadualInput = document.getElementById('inscricao-estadual');
             
             if (razaoSocialInput) razaoSocialInput.value = cliente.razaoSocial || '';
-            if (nomeFantasiaInput) nomeFantasiaInput.value = cliente.nomeFantasia || '';
             if (cnpjInput) cnpjInput.value = cliente.cnpj || '';
             if (inscricaoEstadualInput) inscricaoEstadualInput.value = cliente.inscricaoEstadual || '';
         }
