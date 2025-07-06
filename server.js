@@ -46,6 +46,66 @@ async function connectDB() {
 
 // ==================== ROTAS PARA CLIENTES ====================
 
+// Verificar se documento já existe
+app.get('/api/clientes/verificar-documento', async (req, res) => {
+    try {
+        const { tipo, documento } = req.query;
+        
+        if (!tipo || !documento) {
+            return res.status(400).json({ error: 'Tipo e documento são obrigatórios' });
+        }
+
+        const connection = await connectDB();
+        let query, params;
+
+        if (tipo === 'PF') {
+            query = `
+                SELECT 
+                    c.id as conta_id,
+                    pf.nome,
+                    pf.email,
+                    pf.telefone,
+                    pf.cpf
+                FROM conta c
+                JOIN cliente_pf pf ON c.id_cliente_pf = pf.id
+                WHERE pf.cpf = ? AND c.status = 'ativo'
+            `;
+            params = [documento];
+        } else if (tipo === 'PJ') {
+            query = `
+                SELECT 
+                    c.id as conta_id,
+                    pj.razao_social,
+                    pj.email,
+                    pj.telefone,
+                    pj.cnpj
+                FROM conta c
+                JOIN cliente_pj pj ON c.id_cliente_pj = pj.id
+                WHERE pj.cnpj = ? AND c.status = 'ativo'
+            `;
+            params = [documento];
+        } else {
+            await connection.end();
+            return res.status(400).json({ error: 'Tipo inválido' });
+        }
+
+        const [rows] = await connection.execute(query, params);
+        await connection.end();
+
+        if (rows.length > 0) {
+            res.json({ 
+                exists: true, 
+                cliente: rows[0] 
+            });
+        } else {
+            res.json({ exists: false });
+        }
+    } catch (error) {
+        console.error('Erro ao verificar documento:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
 // Listar todos os clientes
 app.get('/api/clientes', async (req, res) => {
     try {
@@ -77,6 +137,22 @@ app.post('/api/clientes', async (req, res) => {
         }
         if (tipo === 'PJ' && (!razaoSocial || !cnpj || !inscricaoEstadual)) {
             return res.status(400).json({ error: 'Razão Social, CNPJ e Inscrição Estadual são obrigatórios para Pessoa Jurídica' });
+        }
+
+        // Verificar se documento já existe
+        if (tipo === 'PF' && cpf) {
+            const [existingCPF] = await connection.execute('SELECT id FROM cliente_pf WHERE cpf = ?', [cpf]);
+            if (existingCPF.length > 0) {
+                await connection.end();
+                return res.status(400).json({ error: 'CPF já cadastrado no sistema' });
+            }
+        }
+        if (tipo === 'PJ' && cnpj) {
+            const [existingCNPJ] = await connection.execute('SELECT id FROM cliente_pj WHERE cnpj = ?', [cnpj]);
+            if (existingCNPJ.length > 0) {
+                await connection.end();
+                return res.status(400).json({ error: 'CNPJ já cadastrado no sistema' });
+            }
         }
 
         await connection.beginTransaction();
@@ -209,7 +285,7 @@ app.put('/api/clientes/:id', async (req, res) => {
         } else if (tipo === 'PJ' && conta[0].id_cliente_pj) {
             await connection.execute(
                 'UPDATE cliente_pj SET razao_social = ?, cnpj = ?, inscricao_estadual = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?',
-                [razaoSocial, nomeFantasia || null, cnpj, inscricaoEstadual || null, email, telefone, endereco, conta[0].id_cliente_pj]
+                [razaoSocial, cnpj, inscricaoEstadual || null, email, telefone, endereco, conta[0].id_cliente_pj]
             );
         }
         
@@ -248,6 +324,29 @@ app.delete('/api/clientes/:id', async (req, res) => {
     } catch (error) {
         console.error('Erro ao deletar cliente:', error);
         res.status(500).json({ error: 'Erro ao deletar cliente' });
+    }
+});
+
+app.delete('/api/pedidos/:id', async (req, res) => {
+    try {
+        const connection = await connectDB();
+        const { id } = req.params;
+
+        // Verificar se o pedido existe
+        const [pedido] = await connection.execute('SELECT id FROM pedidos WHERE id = ?', [id]);
+        if (pedido.length === 0) {
+            await connection.end();
+            return res.status(404).json({ error: 'Pedido não encontrado' });
+        }
+
+        // Deletar o pedido (pode adicionar CASCADE se necessário)
+        await connection.execute('DELETE FROM pedidos WHERE id = ?', [id]);
+
+        await connection.end();
+        res.json({ success: true, message: 'Pedido excluído com sucesso!' });
+    } catch (error) {
+        console.error('Erro ao deletar pedido:', error);
+        res.status(500).json({ error: 'Erro ao deletar pedido' });
     }
 });
 
@@ -552,6 +651,49 @@ app.put('/api/entregas/:id/status', async (req, res) => {
     }
 });
 
+// Confirmar entrega pelo cliente
+app.put('/api/entregas/:id/confirmar', async (req, res) => {
+    try {
+        const connection = await connectDB();
+        const { id } = req.params;
+        
+        // Verificar se a entrega existe
+        const [entregaExiste] = await connection.execute('SELECT id, id_pedido FROM entregas WHERE id = ?', [id]);
+        if (entregaExiste.length === 0) {
+            await connection.end();
+            return res.status(404).json({ error: 'Entrega não encontrada' });
+        }
+        
+        await connection.beginTransaction();
+        
+        try {
+            // Atualizar status da entrega para "confirmada"
+            await connection.execute(
+                'UPDATE entregas SET status = "confirmada", data_confirmacao = CURRENT_TIMESTAMP WHERE id = ?',
+                [id]
+            );
+            
+            // Atualizar status do pedido relacionado
+            await connection.execute(
+                'UPDATE pedidos SET status = "finalizado" WHERE id = ?',
+                [entregaExiste[0].id_pedido]
+            );
+            
+            await connection.commit();
+            await connection.end();
+            
+            res.json({ success: true, message: 'Entrega confirmada com sucesso!' });
+        } catch (error) {
+            await connection.rollback();
+            await connection.end();
+            throw error;
+        }
+    } catch (error) {
+        console.error('Erro ao confirmar entrega:', error);
+        res.status(500).json({ error: 'Erro ao confirmar entrega' });
+    }
+});
+
 // ==================== ROTAS PARA ESTATÍSTICAS ====================
 
 // Dashboard - estatísticas gerais
@@ -569,7 +711,7 @@ app.get('/api/dashboard', async (req, res) => {
         const [pedidosCount] = await connection.execute('SELECT COUNT(*) as total FROM pedidos');
         
         // Total de entregas em andamento
-        const [entregasCount] = await connection.execute('SELECT COUNT(*) as total FROM entregas WHERE status != "entregue"');
+        const [entregasCount] = await connection.execute('SELECT COUNT(*) as total FROM entregas WHERE status NOT IN ("entregue", "confirmada")');
         
         // Clientes por tipo
         const [clientesPorTipo] = await connection.execute(`
