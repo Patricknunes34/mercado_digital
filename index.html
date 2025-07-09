@@ -10,120 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Login Screen -->
-        <div class="login-container">
-            <div class="login-card">
-                <div class="login-form-container">
-                    <div class="logo-header">
-                        <svg class="logo-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
-                            <line x1="3" y1="6" x2="21" y2="6"></line>
-                            <path d="M16 10a4 4 0 0 1-8 0"></path>
-                        </svg>
-                        <h1>Mercado Digital</h1>
-                        <p class="login-subtitle">Sistema de E-commerce Empresarial</p>
-                    </div>
-                    <!-- Login Form -->
-                    <form id="loginForm" class="login-form">
-                        <div class="form-group">
-                            <label for="email">Email</label>
-                            <input type="email" id="email" name="email" required placeholder="Digite seu email">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="password">Senha</label>
-                            <div class="password-input">
-                                <input type="password" id="password" name="password" required placeholder="Digite sua senha">
-                            <button type="button" class="password-toggle" onclick="togglePassword()"aria-label="Mostrar ou ocultar senha">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                                </svg>
-                            </button>
-
-                            </div>
-                        </div>
-
-                            <div class="form-group">
-                                <label for="userType">Tipo de Conta</label>
-                                <div class="user-type-options">
-                                    <input type="radio" id="pf" name="userType" value="pf" checked>
-                                    <label for="pf">
-                                    <svg class="icon-svg" viewBox="-17 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                                        <path fill="currentColor" d="M341 138C341 67.3075 300.856 16 239 16C177.144 16 137 67.3075 137 138C137 231.394 189 221.676 189 269C189 287.649 139 288 139 288C59.471 288 0 352.471 0 432V464C0 490.51 21.4903 512 48 512H431C457.51 512 479 490.51 479 464V432C479 352.471 418.529 288 339 288C339 288 289 287.649 289 269C289 221.676 341 231.394 341 138Z" />
-                                    </svg>
-                                    Pessoa Física
-                                    </label>
-
-
-                                        <input type="radio" id="pj" name="userType" value="pj">
-                                        <label for="pj">
-                                        <svg class="icon-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
-                                            <line x1="2" y1="21" x2="22" y2="21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
-                                            <rect x="4" y="11" width="6" height="10" rx="1" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5" />
-                                            <rect x="10" y="2" width="10" height="19" rx="1" stroke="currentColor" stroke-linejoin="round" stroke-width="1.5" />
-                                            <line x1="14" y1="16.004" x2="16" y2="16.004" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
-                                            <line x1="6" y1="16.004" x2="8" y2="16.004" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
-                                            <line x1="14" y1="11.504" x2="16" y2="11.504" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
-                                            <line x1="14" y1="7.004" x2="16" y2="7.004" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
-                                        </svg>
-                                        Pessoa Jurídica
-                                        </label>
-
-
-                                    <input type="radio" id="admin" name="userType" value="admin">
-                                        <label for="admin">
-                                        <svg class="icon-svg" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
-                                            <circle cx="14.67" cy="8.3" r="6" />
-                                            <path d="M16.44,31.82a2.15,2.15,0,0,1-.38-2.55l.53-1-1.09-.33A2.14,2.14,0,0,1,14,25.84V23.79a2.16,2.16,0,0,1,1.53-2.07l1.09-.33-.52-1a2.17,2.17,0,0,1,.35-2.52,18.92,18.92,0,0,0-2.32-.16A15.58,15.58,0,0,0,2,23.07v7.75a1,1,0,0,0,1,1H16.44Z" />
-                                            <path d="M33.7,23.46l-2-.6a6.73,6.73,0,0,0-.58-1.42l1-1.86a.35.35,0,0,0-.07-.43l-1.45-1.46a.38.38,0,0,0-.43-.07l-1.85,1a7.74,7.74,0,0,0-1.43-.6l-.61-2a.38.38,0,0,0-.36-.25H23.84a.38.38,0,0,0-.35.26l-.6,2a6.85,6.85,0,0,0-1.45.61l-1.81-1a.38.38,0,0,0-.44.06l-1.47,1.44a.37.37,0,0,0-.07.44l1,1.82A7.24,7.24,0,0,0,18,22.83l-2,.61a.36.36,0,0,0-.26.35v2.05a.36.36,0,0,0,.26.35l2,.61a7.29,7.29,0,0,0,.6,1.41l-1,1.9a.37.37,0,0,0,.07.44L19.16,32a.38.38,0,0,0,.44.06l1.87-1a7.09,7.09,0,0,0,1.4.57l.6,2.05a.38.38,0,0,0,.36.26h2.05a.38.38,0,0,0,.35-.26l.6-2.05a6.68,6.68,0,0,0,1.38-.57l1.89,1a.38.38,0,0,0,.44-.06L32,30.55a.38.38,0,0,0,.06-.44l-1-1.88a6.92,6.92,0,0,0,.57-1.38l2-.61a.39.39,0,0,0,.27-.35V23.82A.4.4,0,0,0,33.7,23.46Zm-8.83,4.72a3.34,3.34,0,1,1,3.33-3.34A3.34,3.34,0,0,1,24.87,28.18Z" />
-                                        </svg>
-                                        Admin
-                                        </label>
-                                </div>
-                                </div>
-
-
-
-                        <button type="submit" class="login-btn">
-                            <span>Entrar no Sistema</span>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                <polyline points="16,17 21,12 16,7"></polyline>
-                                <line x1="21" y1="12" x2="9" y2="12"></line>
-                            </svg>
-                        </button>
-                    </form>
-
-                    <div class="login-demo">
-                        <p>Contas de demonstração:</p>
-                        <div class="demo-accounts">
-                            <button class="demo-btn" onclick="fillDemoAccount('user')">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="12" cy="7" r="4"></circle>
-                                </svg>
-                                Demo Cliente
-                            </button>
-                            <button class="demo-btn" onclick="fillDemoAccount('owner')">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 2l3.09 6.26L22 9l-5 4.87 1.18 6.88L12 17.77l-6.18 2.98L7 14.87 2 9l6.91-1.74L12 2z"></path>
-                                </svg>
-                                Demo Admin
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="login-footer">
-                    <p>&copy; 2024 Mercado Digital. Todos os direitos reservados.</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- User Interface -->
-    <div id="userInterface" class="interface hidden">
+    <div id="userInterface" class="interface">
         <!-- User Header -->
         <header class="header user-header">
             <div class="container">
@@ -145,16 +33,9 @@
                         <a href="#user-pedidos" class="nav-link" data-section="user-pedidos">Meus Pedidos</a>
                         <a href="#user-entregas" class="nav-link" data-section="user-entregas">Entregas</a>
                         <div class="user-info">
-                            <span id="user-email" class="user-email"></span>
+                            <span id="user-email" class="user-email">usuario@exemplo.com</span>
                             <span id="user-type" class="user-type">Cliente</span>
                             <button class="btn btn-secondary btn-small" onclick="logout()">Sair</button>
-                            <button class="btn btn-primary btn-small" onclick="mercado.mostrarGerenciadorDados()" title="Gerenciar dados salvos">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="12" cy="7" r="4"></circle>
-                                </svg>
-                                Dados
-                            </button>
                         </div>
                     </nav>
                 </div>
@@ -250,7 +131,7 @@
                         <a href="#pedidos" class="nav-link" data-section="pedidos">Pedidos</a>
                         <a href="#entregas" class="nav-link" data-section="entregas">Entregas</a>
                         <div class="user-info">
-                            <span id="admin-email" class="user-email"></span>
+                            <span id="admin-email" class="user-email">admin@mercadodigital.com</span>
                             <button class="btn btn-secondary btn-small" onclick="logout()">Sair</button>
                         </div>
                     </nav>
@@ -354,12 +235,6 @@
                                         <polyline points="20,6 9,17 4,12"></polyline>
                                     </svg>
                                     <span>Controle de Estoque</span>
-                                </div>
-                                <div class="feature-item">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="20,6 9,17 4,12"></polyline>
-                                    </svg>
-                                    <span>Sistema de Preenchimento Automático</span>
                                 </div>
                             </div>
                         </div>
@@ -691,20 +566,6 @@
                 <span class="close" onclick="closeModal('checkoutModal')">&times;</span>
             </div>
             <form id="checkoutForm" onsubmit="processarCompra(event)">
-                <div style="background: rgba(255, 215, 0, 0.1); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255, 215, 0, 0.3);">
-                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--primary-color);">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 6v6l4 2"></path>
-                        </svg>
-                        <strong style="color: var(--primary-color);">Preenchimento Automático</strong>
-                    </div>
-                    <p style="font-size: 0.875rem; color: var(--text-secondary); margin: 0;">
-                        Seus dados serão salvos automaticamente para facilitar futuras compras. 
-                        Você pode gerenciar estes dados no botão "Dados" do menu superior.
-                    </p>
-                </div>
-
                 <div class="form-group">
                     <label>Dados do Cliente:</label>
                     <div class="radio-group">
