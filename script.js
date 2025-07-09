@@ -1,10 +1,15 @@
-// Sistema de E-commerce - Mercado Digital com MySQL
+// Sistema de E-commerce - Mercado Digital (sem login)
 // Sistema com Usuário e Dono
 
 class MercadoDigital {
     constructor() {
         this.apiUrl = 'http://localhost:3000/api';
-        this.userType = null;
+        this.userType = 'user'; // Definir como usuário por padrão
+        this.currentUser = {
+            email: 'usuario@exemplo.com',
+            type: 'user',
+            name: 'Usuário Demo'
+        };
         this.clientes = [];
         this.produtos = [];
         this.pedidos = [];
@@ -17,8 +22,9 @@ class MercadoDigital {
     }
 
     async init() {
-        // Não carregar dados até fazer login
         this.setupEventListeners();
+        // Inicializar diretamente na interface do usuário
+        await this.initUserInterface();
     }
 
     setupEventListeners() {
@@ -45,56 +51,71 @@ class MercadoDigital {
         }
     }
 
-    // ==================== LOGIN SYSTEM ====================
-    
-    async loginAs(type) {
-        this.userType = type;
+    // Função para alternar entre usuário e admin
+    async switchToAdmin() {
+        this.userType = 'owner';
+        this.currentUser = {
+            email: 'admin@mercadodigital.com',
+            type: 'owner',
+            name: 'Administrador'
+        };
         
-        // Esconder modal de login
-        const loginModal = document.getElementById('loginModal');
-        if (loginModal) {
-            loginModal.classList.remove('active');
+        // Esconder interface do usuário
+        const userInterface = document.getElementById('userInterface');
+        if (userInterface) {
+            userInterface.classList.add('hidden');
         }
         
-        if (type === 'user') {
-            const userInterface = document.getElementById('userInterface');
-            if (userInterface) {
-                userInterface.classList.remove('hidden');
-            }
-            await this.initUserInterface();
-        } else {
-            const ownerInterface = document.getElementById('ownerInterface');
-            if (ownerInterface) {
-                ownerInterface.classList.remove('hidden');
-            }
-            await this.initOwnerInterface();
+        // Mostrar interface do admin
+        const ownerInterface = document.getElementById('ownerInterface');
+        if (ownerInterface) {
+            ownerInterface.classList.remove('hidden');
         }
+        
+        await this.initOwnerInterface();
+    }
+
+    async switchToUser() {
+        this.userType = 'user';
+        this.currentUser = {
+            email: 'usuario@exemplo.com',
+            type: 'user',
+            name: 'Usuário Demo'
+        };
+        
+        // Esconder interface do admin
+        const ownerInterface = document.getElementById('ownerInterface');
+        if (ownerInterface) {
+            ownerInterface.classList.add('hidden');
+        }
+        
+        // Mostrar interface do usuário
+        const userInterface = document.getElementById('userInterface');
+        if (userInterface) {
+            userInterface.classList.remove('hidden');
+        }
+        
+        await this.initUserInterface();
     }
 
     logout() {
-        this.userType = null;
-        this.carrinho = [];
-        
-        // Esconder interfaces
-        const userInterface = document.getElementById('userInterface');
-        const ownerInterface = document.getElementById('ownerInterface');
-        const loginModal = document.getElementById('loginModal');
-        
-        if (userInterface) userInterface.classList.add('hidden');
-        if (ownerInterface) ownerInterface.classList.add('hidden');
-        if (loginModal) loginModal.classList.add('active');
-        
-        // Reset navegação
-        this.showSection(this.userType === 'user' ? 'user-produtos' : 'dashboard');
+        // Apenas recarregar a página para reiniciar
+        window.location.reload();
     }
 
     // ==================== USER INTERFACE ====================
     
     async initUserInterface() {
+        // Garantir que a interface do usuário está visível
+        const userInterface = document.getElementById('userInterface');
+        if (userInterface) {
+            userInterface.classList.remove('hidden');
+        }
+        
         await this.loadProdutos();
         this.renderUserProdutos();
         this.updateCartCount();
-        this.setupFormHandlers(); // Add this line to define toggleCheckoutFields
+        this.setupFormHandlers();
         this.showSection('user-produtos');
     }
 
@@ -289,7 +310,7 @@ class MercadoDigital {
         checkoutTotal.textContent = `R$ ${total.toFixed(2)}`;
         
         openModal('checkoutModal');
-        toggleCheckoutFields(); // Add this line to set initial field visibility
+        toggleCheckoutFields();
     }
 
     // Verificar se documento já existe
@@ -1107,13 +1128,13 @@ class MercadoDigital {
     async excluirPedido(id) {
         if (confirm('Tem certeza que deseja excluir este pedido?'))  {
             try {
-                const result = await this.apiRequest(`/pedidos/${id}    `, { // Corrigido para /pedidos e estrutura de  objeto
+                const result = await this.apiRequest(`/pedidos/${id}`, {
                     method: 'DELETE'
                 });
                 if (result.success) {
-                    this.showNotification('Pedido excluído com  sucesso!', 'success');
-                    await this.loadPedidos(); // Recarrega a lista de pedidos
-                    await this.loadDashboard(); // Mantém o     recarregamento do dashboard
+                    this.showNotification('Pedido excluído com sucesso!', 'success');
+                    await this.loadPedidos();
+                    await this.loadDashboard();
                 }
             } catch (error) {
                 console.error('Erro ao excluir pedido:', error);
@@ -1523,11 +1544,6 @@ class MercadoDigital {
 
 // ==================== FUNÇÕES GLOBAIS ====================
 
-// Funções globais para login
-function loginAs(type) {
-    mercado.loginAs(type);
-}
-
 function logout() {
     mercado.logout();
 }
@@ -1633,6 +1649,15 @@ function filtrarProdutos() {
 
 function finalizarCompra() {
     mercado.finalizarCompra();
+}
+
+// Função para alternar entre usuário e admin (para teste)
+function switchToAdmin() {
+    mercado.switchToAdmin();
+}
+
+function switchToUser() {
+    mercado.switchToUser();
 }
 
 // Inicializar sistema
