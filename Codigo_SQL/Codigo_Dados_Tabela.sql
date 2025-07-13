@@ -6,11 +6,11 @@ CREATE TABLE cliente_pf (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
     cpf VARCHAR(14) UNIQUE NOT NULL,
-    rg VARCHAR(20),
     data_nascimento DATE,
     email VARCHAR(100) NOT NULL,
     telefone VARCHAR(20) NOT NULL,
     endereco TEXT NOT NULL,
+    senha varchar (10),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -19,12 +19,12 @@ CREATE TABLE cliente_pf (
 CREATE TABLE cliente_pj (
     id INT AUTO_INCREMENT PRIMARY KEY,
     razao_social VARCHAR(100) NOT NULL,
-    nome_fantasia VARCHAR(100),
     cnpj VARCHAR(18) UNIQUE NOT NULL,
     inscricao_estadual VARCHAR(20),
     email VARCHAR(100) NOT NULL,
     telefone VARCHAR(20) NOT NULL,
     endereco TEXT NOT NULL,
+    senha varchar (10),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -103,14 +103,15 @@ CREATE TABLE pagamento (
     CONSTRAINT fk_pagamento_pedido FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE
 );
 
--- Tabela de Entregas
+-- Tabela de Entregas (CORRIGIDA - com data_confirmacao já incluída)
 CREATE TABLE entregas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     id_pedido INT NOT NULL,
     codigo_rastreio VARCHAR(20) UNIQUE NOT NULL,
-    status ENUM('preparando', 'enviado', 'transito', 'entregue') DEFAULT 'preparando',
+    status ENUM('preparando', 'enviado', 'transito', 'entregue', 'confirmada') DEFAULT 'preparando',
     endereco_entrega TEXT NOT NULL,
-    data_envio TIMESTAMP NULL,
+    data_envio DATETIME NULL,
+    data_confirmacao DATETIME NULL,
     previsao_entrega DATE NULL,
     data_entrega TIMESTAMP NULL,
     observacoes TEXT,
@@ -119,6 +120,7 @@ CREATE TABLE entregas (
     
     CONSTRAINT fk_entrega_pedido FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE
 );
+
 
 -- Inserir dados de exemplo para produtos
 INSERT INTO produtos (nome, categoria, descricao, preco, estoque, imagem) VALUES
@@ -160,13 +162,8 @@ LEFT JOIN cliente_pf pf ON c.id_cliente_pf = pf.id
 LEFT JOIN cliente_pj pj ON c.id_cliente_pj = pj.id;
 
 -- Exemplos de consultas úteis
-use e_comerce;
 SELECT * FROM view_clientes;
 SELECT * FROM produtos WHERE status = 'ativo';
 SELECT * FROM pedidos WHERE status = 'pendente';
-
-ALTER TABLE itens_pedido ADD FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE;
-ALTER TABLE pagamento ADD FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE;
-ALTER TABLE entregas ADD FOREIGN KEY (id_pedido) REFERENCES pedidos(id) ON DELETE CASCADE;
 
 drop database e_comerce;
