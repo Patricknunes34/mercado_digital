@@ -471,6 +471,110 @@ app.delete('/api/produtos/:id', async (req, res) => {
 
 // ==================== ROTAS PARA PEDIDOS ====================
 
+// Listar entregas de um cliente específico
+app.get('/api/entregas/cliente/:id', async (req, res) => {
+    try {
+        const connection = await connectDB();
+        const { id } = req.params;
+        
+        const [rows] = await connection.execute(`
+            SELECT 
+                e.*,
+                p.id as pedido_id,
+                p.total as pedido_total
+            FROM entregas e
+            JOIN pedidos p ON e.id_pedido = p.id
+            WHERE p.id_conta = ?
+            ORDER BY e.created_at DESC
+        `, [id]);
+        
+        await connection.end();
+        res.json(rows);
+    } catch (error) {
+        console.error('Erro ao buscar entregas do cliente:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
+// Listar pedidos de um cliente específico
+app.get('/api/pedidos/cliente/:id', async (req, res) => {
+    try {
+        const connection = await connectDB();
+        const { id } = req.params;
+        
+        const [rows] = await connection.execute(`
+            SELECT 
+                p.*,
+                pg.tipo as forma_pagamento,
+                e.codigo_rastreio,
+                e.status as status_entrega
+            FROM pedidos p
+            LEFT JOIN pagamento pg ON p.id = pg.id_pedido
+            LEFT JOIN entregas e ON p.id = e.id_pedido
+            WHERE p.id_conta = ?
+            ORDER BY p.created_at DESC
+        `, [id]);
+        
+        await connection.end();
+        res.json(rows);
+    } catch (error) {
+        console.error('Erro ao buscar pedidos do cliente:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
+// Listar entregas de um cliente específico
+app.get('/api/entregas/cliente/:id', async (req, res) => {
+    try {
+        const connection = await connectDB();
+        const { id } = req.params;
+        
+        const [rows] = await connection.execute(`
+            SELECT 
+                e.*,
+                p.id as pedido_id,
+                p.total as pedido_total
+            FROM entregas e
+            JOIN pedidos p ON e.id_pedido = p.id
+            WHERE p.id_conta = ?
+            ORDER BY e.created_at DESC
+        `, [id]);
+        
+        await connection.end();
+        res.json(rows);
+    } catch (error) {
+        console.error('Erro ao buscar entregas do cliente:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
+// Listar pedidos de um cliente específico
+app.get('/api/pedidos/cliente/:id', async (req, res) => {
+    try {
+        const connection = await connectDB();
+        const { id } = req.params;
+        
+        const [rows] = await connection.execute(`
+            SELECT 
+                p.*,
+                pg.tipo as forma_pagamento,
+                e.codigo_rastreio,
+                e.status as status_entrega
+            FROM pedidos p
+            LEFT JOIN pagamento pg ON p.id = pg.id_pedido
+            LEFT JOIN entregas e ON p.id = e.id_pedido
+            WHERE p.id_conta = ?
+            ORDER BY p.created_at DESC
+        `, [id]);
+        
+        await connection.end();
+        res.json(rows);
+    } catch (error) {
+        console.error('Erro ao buscar pedidos do cliente:', error);
+        res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+});
+
 // Listar pedidos
 app.get('/api/pedidos', async (req, res) => {
     try {
@@ -658,26 +762,46 @@ app.put('/api/entregas/:id/confirmar', async (req, res) => {
         const { id } = req.params;
         
         // Verificar se a entrega existe
-        const [entregaExiste] = await connection.execute('SELECT id, id_pedido FROM entregas WHERE id = ?', [id]);
+        const [entregaExiste] = await connection.execute('SELECT id, id_pedido, status FROM entregas WHERE id = ?', [id]);
         if (entregaExiste.length === 0) {
             await connection.end();
             return res.status(404).json({ error: 'Entrega não encontrada' });
+        }
+        
+        // Verificar se a entrega já está confirmada
+        if (entregaExiste[0].status === 'confirmada') {
+            await connection.end();
+            return res.status(400).json({ error: 'Entrega já confirmada' });
+        }
+        
+        // Verificar se a entrega está no status "entregue"
+        if (entregaExiste[0].status !== 'entregue') {
+            await connection.end();
+            return res.status(400).json({ error: 'Entrega deve estar no status "entregue" para ser confirmada' });
         }
         
         await connection.beginTransaction();
         
         try {
             // Atualizar status da entrega para "confirmada"
-            await connection.execute(
+            const [updateEntrega] = await connection.execute(
                 'UPDATE entregas SET status = "confirmada", data_confirmacao = CURRENT_TIMESTAMP WHERE id = ?',
                 [id]
             );
             
+            if (updateEntrega.affectedRows === 0) {
+                throw new Error('Falha ao atualizar o status da entrega');
+            }
+            
             // Atualizar status do pedido relacionado
-            await connection.execute(
-                'UPDATE pedidos SET status = "finalizado" WHERE id = ?',
-                [entregaExiste[0].id_pedido]
-            );
+        const [updatePedido] = await connection.execute(
+        'UPDATE pedidos SET status = "entregue" WHERE id = ?',
+        [entregaExiste[0].id_pedido]
+    );
+            
+            if (updatePedido.affectedRows === 0) {
+                throw new Error('Falha ao atualizar o status do pedido');
+            }
             
             await connection.commit();
             await connection.end();
@@ -686,11 +810,12 @@ app.put('/api/entregas/:id/confirmar', async (req, res) => {
         } catch (error) {
             await connection.rollback();
             await connection.end();
-            throw error;
+            console.error('Erro interno ao confirmar entrega:', error.message, error.stack);
+            throw new Error(`Erro interno: ${error.message}`);
         }
     } catch (error) {
-        console.error('Erro ao confirmar entrega:', error);
-        res.status(500).json({ error: 'Erro ao confirmar entrega' });
+        console.error('Erro ao confirmar entrega:', error.message, error.stack);
+        res.status(500).json({ error: `Erro ao confirmar entrega: ${error.message}` });
     }
 });
 
