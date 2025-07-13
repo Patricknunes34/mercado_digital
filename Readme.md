@@ -1,86 +1,105 @@
 # Sistema E-commerce - Mercado Digital
 
-Sistema completo de e-commerce com integração de HTML, CSS como estrutura e estilo, MySQL e JavaScript
-para funcionalidade operacional de conexão direta ao banco de dados para pixar informações e utilização 
-de nodes_modules para dependências externas na estrutura do codigo
+Sistema completo de e-commerce com integração de HTML, CSS, JavaScript e MySQL para funcionalidade operacional com conexão direta ao banco de dados para gerenciamento de informações e utilização de node_modules para dependências externas.
 
 ## 🚀 Funcionalidades
 
-### 📊 **Dashboard**
+### 📊 Dashboard Administrativo
 - Estatísticas em tempo real
 - Contadores de clientes, produtos, pedidos e entregas
-- Integração com banco de dados MySQL
+- Integração completa com banco de dados MySQL
+- Interface intuitiva para gestão geral
 
-### 👥 **Gestão de Clientes**
+### 👥 Gestão de Clientes
 - Cadastro de Pessoa Física (PF) e Pessoa Jurídica (PJ)
 - CRUD completo integrado com MySQL
-- Validação de CPF/CNPJ
+- Validação automática de CPF/CNPJ
 - Sistema de contas vinculadas
+- Histórico completo de atividades
 
-### 💳 **Sistema de Pagamentos**
-- Múltiplas formas de pagamento
-- Integração com tabela de pagamentos
-- Suporte a: Dinheiro, Cartão, PIX, Boleto
-
-### 📦 **Produtos**
-- Catálogo completo de produtos
-- Controle de estoque
-- Categorização
-- Upload de imagens
-
-### 🛒 **Pedidos**
-- Criação de pedidos com múltiplos produtos
-- Cálculo automático de totais
+### 💳 Sistema de Pagamentos
 - Múltiplas formas de pagamento por pedido
-- Status de acompanhamento
+- Integração com tabela de pagamentos no banco
+- Suporte a: Dinheiro, Cartão de Crédito, Cartão de Débito, PIX, Boleto
+- Processamento seguro de transações
 
-### 🚚 **Entregas**
-- Códigos de rastreio únicos
-- Status de entrega em tempo real
+### 📦 Catálogo de Produtos
+- Gerenciamento completo de produtos
+- Controle de estoque em tempo real
+- Sistema de categorização
+- Upload e gerenciamento de imagens
+- Filtros por categoria
 
-## 🛠️ **Tecnologias Utilizadas**
+### 🛒 Sistema de Pedidos
+- Carrinho de compras interativo
+- Criação de pedidos com múltiplos produtos
+- Cálculo automático de totais e subtotais
+- Múltiplas formas de pagamento por pedido
+- Sistema de status de acompanhamento
+- Histórico completo de pedidos
+
+### 🚚 Controle de Entregas
+- Geração automática de códigos de rastreio únicos
+- Atualização de status de entrega em tempo real
+- Confirmação de recebimento pelo cliente
+- Previsão de entrega automatizada
+
+## 🛠️ Tecnologias Utilizadas
 
 ### Backend
-- **Node.js** - Runtime JavaScript
-- **MySQL** - Driver MySQL para Node.js
+- **Node.js** - Runtime JavaScript para servidor
+- **MySQL2** - Driver MySQL para Node.js com suporte a promises
 - **CORS** - Middleware para requisições cross-origin
+- **Express** - Framework web para Node.js
 
 ### Frontend
-- **HTML** - Estrutura
-- **CSS** - Estilização moderna
-- **JavaScript** - Lógica da aplicação
-- **Fetch API** - Comunicação com backend
+- **HTML5** - Estrutura semântica moderna
+- **CSS3** - Estilização avançada com design responsivo
+- **JavaScript ES6+** - Lógica da aplicação com recursos modernos
+- **Fetch API** - Comunicação assíncrona com backend
 
 ### Banco de Dados
-- **MySQL** - Sistema de gerenciamento de banco de dados
+- **MySQL** - Sistema de gerenciamento de banco de dados relacional
 - **Transações** - Garantia de integridade dos dados
-- **Foreign Keys** - Relacionamentos entre tabelas
+- **Foreign Keys** - Relacionamentos consistentes entre tabelas
+- **Views** - Consultas otimizadas para relatórios
 
-## 📋 **Pré-requisitos**
-- Node.js (versão 14 ou superior)
-- MySQL Server
-- NPM
+## 📋 Pré-requisitos
 
-## ⚙️ **Instalação**
+Antes de iniciar, certifique-se de ter instalado:
+
+- **Node.js** (versão 16 ou superior)
+- **MySQL Server** (versão 8.0 ou superior)
+- **NPM** (incluído com Node.js)
+- **Git** (opcional, para controle de versão)
+
+## ⚙️ Instalação e Configuração
 
 ### 1. Clone o repositório
 ```bash
 git clone <url-do-repositorio>
 cd mercado-digital
 ```
+
 ### 2. Instale as dependências
 ```bash
 npm install
 ```
 
-### 3. Configure o banco de dados
-Execute o script SQL fornecido no MySQL:
+### 3. Configure o banco de dados MySQL
 
+#### 3.1. Criar o banco de dados
+Execute o seguinte comando no MySQL:
+```sql
+CREATE DATABASE e_comerce CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE e_comerce;
 ```
-Copie e cole o documento 
-```
+
+#### 3.2. Execute o script SQL
+Execute o script SQL completo fornecido no arquivo `database.sql` para criar todas as tabelas, views e relacionamentos necessários.
 
 ### 4. Configure a conexão com o banco
+
 Edite o arquivo `server.js` e configure suas credenciais do MySQL:
 
 ```javascript
@@ -97,96 +116,196 @@ const dbConfig = {
 npm run dev
 ```
 
-O servidor estará rodando em `http://localhost:3000`
+O servidor estará rodando em: `http://localhost:3000`
 
-## 🔄 **API Endpoints**
+## 🔄 Endpoints da API
 
 ### Clientes
-- `GET /api/clientes` - Listar todos os clientes
-- `POST /api/clientes` - Criar novo cliente
-- `GET /api/clientes/:id` - Buscar cliente por ID
-- `PUT /api/clientes/:id` - Atualizar cliente
-- `DELETE /api/clientes/:id` - Deletar cliente
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/clientes` | Listar todos os clientes |
+| POST | `/api/clientes` | Criar novo cliente |
+| GET | `/api/clientes/:id` | Buscar cliente por ID |
+| PUT | `/api/clientes/:id` | Atualizar cliente |
+| DELETE | `/api/clientes/:id` | Deletar cliente |
+| GET | `/api/clientes/verificar-documento` | Verificar se documento já existe |
 
-### Pagamentos
-- `GET /api/clientes/:id/pagamentos` - Listar pagamentos do cliente
-- `POST /api/pagamentos` - Criar novo pagamento
+### Produtos
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/produtos` | Listar produtos ativos |
+| POST | `/api/produtos` | Criar novo produto |
+| GET | `/api/produtos/:id` | Buscar produto por ID |
+| PUT | `/api/produtos/:id` | Atualizar produto |
+| DELETE | `/api/produtos/:id` | Deletar produto |
+
+### Pedidos
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/pedidos` | Listar todos os pedidos |
+| POST | `/api/pedidos` | Criar novo pedido |
+| GET | `/api/pedidos/cliente/:id` | Pedidos de um cliente |
+| DELETE | `/api/pedidos/:id` | Deletar pedido |
+
+### Entregas
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/entregas` | Listar todas as entregas |
+| GET | `/api/entregas/cliente/:id` | Entregas de um cliente |
+| PUT | `/api/entregas/:id/status` | Atualizar status da entrega |
+| PUT | `/api/entregas/:id/confirmar` | Confirmar recebimento |
 
 ### Dashboard
-- `GET /api/dashboard` - Estatísticas gerais
-## 📱 **Como Usar**
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/dashboard` | Estatísticas gerais do sistema |
 
-### 1. **Dashboard**
+## 📱 Como Usar
+
+### 1. Acesso ao Sistema
+- **URL**: `http://localhost:3000`
+- **Admin Demo**: admin@mercadodigital.com
+- **Cliente Demo**: Use o botão "Cliente" na tela de login
+
+### 2. Dashboard Administrativo
 - Visualize estatísticas gerais do sistema
 - Monitore totais de clientes, produtos, pedidos e entregas
+- Acesse relatórios em tempo real
 
-### 2. **Cadastro de Clientes**
-- Clique em "Novo Cliente"
-- Selecione o tipo (PF ou PJ)
-- Preencha os dados obrigatórios
-- Salve para criar no banco de dados
+### 3. Gestão de Clientes
+- Clique em "Clientes" no menu administrativo
+- Visualize todos os clientes cadastrados
+- Dados organizados por tipo (PF/PJ)
 
-### 3. **Gestão de Produtos**
-- Adicione produtos com imagens
-- Controle estoque
-- Categorize produtos
-- nomeamento de produto
-- Salvamento de alteração no banco de dados permanentemente
+### 4. Cadastro de Produtos
+- Acesse "Produtos" no menu administrativo
+- Clique em "Novo Produto"
+- Preencha: nome, categoria, descrição, preço, estoque
+- Adicione URL da imagem (opcional)
+- Sistema salva automaticamente no banco
 
-### 4. **Criação de Pedidos**
-- Selecione cliente
-- Adicione produtos e quantidades
-- Configure formas de pagamento
-- O sistema criará automaticamente:
-  - Registro de pagamento no MySQL
-  - Entrega com código de rastreio
+### 5. Experiência do Cliente
+- Interface limpa e intuitiva
+- Navegação por categorias de produtos
+- Carrinho de compras dinâmico
+- Processo de checkout simplificado
+- Acompanhamento de pedidos e entregas
 
-### 5. **Acompanhamento de Entregas**
-- Visualize status em tempo real
+### 6. Processo de Compra
+1. Cliente navega pelo catálogo
+2. Adiciona produtos ao carrinho
+3. Revisa itens e quantidades
+4. Seleciona forma de pagamento
+5. Confirma pedido
+6. Sistema gera automaticamente:
+   - Registro de pagamento no MySQL
+   - Entrega com código de rastreio
+   - Previsão de entrega
+
+### 7. Controle de Entregas
+- Acompanhe status em tempo real
 - Atualize status conforme necessário
-- Filtre por status de entrega
+- Cliente pode confirmar recebimento
+- Filtros por status de entrega
 
-## 🔒 **Segurança**
+## 🔒 Segurança e Integridade
 
-- Transações MySQL para integridade dos dados
+### Banco de Dados
+- **Transações MySQL** para integridade dos dados
+- **Foreign Keys** para relacionamentos consistentes
+- **Constraints** para garantir consistência
+- **Soft Delete** para produtos com histórico
+
+### Validações
 - Validação de dados no frontend e backend
-- Relacionamentos com Foreign Keys
-- Constraints para garantir consistência
+- Verificação de CPF/CNPJ únicos
+- Validação de estoque antes da venda
+- Sanitização de inputs do usuário
 
-## 🎨 **Interface**
+### Estrutura de Dados
+- Separação clara entre PF e PJ
+- Histórico completo de transações
+- Rastreabilidade de todas as operações
 
-- Design responsivo e moderno
-- Navegação intuitiva
-- Notificações em tempo real
-- Modais para formulários
-- Tabelas e grids organizados
+## 🎨 Interface e Design
 
-## 📊 **Estrutura do Banco**
+### Características
+- **Design Responsivo** para todos os dispositivos
+- **Navegação Intuitiva** com menu dinâmico
+- **Tema Escuro Elegante** com detalhes dourados
+- **Micro-interações** para melhor UX
+- **Feedback Visual** em todas as ações
+
+### Responsividade
+- **Desktop** (1200px+): Layout completo
+- **Tablet** (768px-1199px): Adaptação do grid
+- **Mobile** (320px-767px): Interface otimizada
+
+## 📊 Estrutura do Banco de Dados
 
 ```
 e_comerce/
-├── cliente_pf (id, nome, cpf)
-├── cliente_pj (id, razao_social, cnpj)
+├── cliente_pf (id, nome, cpf, email, telefone, endereco)
+├── cliente_pj (id, razao_social, cnpj, email, telefone, endereco)
 ├── conta (id, tipo, id_cliente_pf, id_cliente_pj)
-└── pagamento (id, tipo, dados, id_conta)
+├── produtos (id, nome, categoria, preco, estoque, imagem)
+├── pedidos (id, id_conta, data_pedido, total, status)
+├── itens_pedido (id, id_pedido, id_produto, quantidade, preco_unitario)
+├── pagamento (id, id_pedido, tipo, valor, dados)
+├── entregas (id, id_pedido, codigo_rastreio, status, endereco_entrega)
+└── view_clientes (view unificada para consultas)
 ```
 
-## 🚀 **Próximos Passos**
+## 🚀 Funcionalidades Futuras
 
-- [ ] Autenticação de usuários
-- [ ] Relatórios avançados
-- [ ] Integração com APIs de pagamento
-- [ ] Sistema de notificações
-- [ ] App mobile
+- [ ] **Autenticação** avançada com JWT
+- [ ] **Relatórios** detalhados e exportação
+- [ ] **Integração** com APIs de pagamento (Stripe, PagSeguro)
+- [ ] **Sistema de Notificações** em tempo real
+- [ ] **Aplicativo Mobile** com React Native
+- [ ] **Dashboard Analytics** avançado
+- [ ] **Sistema de Cupons** e promoções
+- [ ] **Integração com Correios** para rastreamento
 
-## 📞 **Suporte**
+## 📞 Suporte e Troubleshooting
 
-Para dúvidas ou problemas:
-1. Verifique se o MySQL está rodando
-2. Confirme as credenciais de conexão
-3. Verifique os logs do servidor
-4. Teste as rotas da API individualmente
+### Problemas Comuns
 
----
+1. **Erro de conexão com MySQL**
+   - Verifique se o MySQL está rodando
+   - Confirme as credenciais de conexão
+   - Teste a conexão manualmente
 
-**Desenvolvido com ❤️ usando Node.js, MySQL e JavaScript**
+2. **Servidor não inicia**
+   - Verifique se a porta 3000 está livre
+   - Confirme se todas as dependências estão instaladas
+   - Verifique os logs do console
+
+3. **Problemas com API**
+   - Teste as rotas da API individualmente
+   - Verifique o network tab do navegador
+   - Confirme se o CORS está configurado
+
+### Logs e Debug
+```bash
+# Verificar logs do servidor
+npm run dev
+
+# Testar conexão com banco
+mysql -u seu_usuario -p e_comerce
+
+# Verificar se porta está em uso
+netstat -an | grep :3000
+```
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
+
+## 👨‍💻 Desenvolvedor
+
+**Sistema desenvolvido com:**
+- Node.js para backend robusto
+- MySQL para persistência confiável
+- JavaScript moderno para interface dinâmica
+- Design responsivo para todos os dispositivos
