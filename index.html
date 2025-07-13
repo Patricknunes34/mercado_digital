@@ -10,8 +10,167 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Login/Cadastro Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-form-container">
+            <div class="logo-header">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
+                <h1>Mercado Digital</h1>
+                <p>Sistema completo de e-commerce</p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="loginEmail">Email:</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Senha:</label>
+                    <div class="password-input">
+                        <input type="password" id="loginPassword" required>
+                        <button type="button" class="password-toggle" onclick="togglePassword('loginPassword')" title="Mostrar ou ocultar senha">
+                        <span class="visually-hidden">Mostrar ou ocultar senha</span>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                    </div>
+                </div>
+                <button type="submit" class="login-btn">Entrar</button>
+            </form>
+
+            <!-- Registration Form -->
+            <form id="registerForm" class="login-form" style="display: none;">
+                <div class="form-group">
+                    <label>Tipo de Conta:</label>
+                    <div class="user-type-options">
+                        <input type="radio" id="tipoPF" name="tipo" value="PF" checked>
+                        <label for="tipoPF">
+                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            Pessoa Física
+                        </label>
+                        <input type="radio" id="tipoPJ" name="tipo" value="PJ">
+                        <label for="tipoPJ">
+                            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                            Pessoa Jurídica
+                        </label>
+                    </div>
+                </div>
+
+                <div id="campos-pf" class="campos-tipo">
+                    <div class="form-group">
+                        <label for="nome">Nome Completo:</label>
+                        <input type="text" id="nome" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cpf">CPF:</label>
+                        <input type="text" id="cpf" placeholder="000.000.000-00">
+                    </div>
+                    <div class="form-group">
+                        <label for="dataNascimento">Data de Nascimento:</label>
+                        <input type="date" id="dataNascimento">
+                    </div>
+                </div>
+
+                <div id="campos-pj" class="campos-tipo">
+                    <div class="form-group">
+                        <label for="razaoSocial">Razão Social:</label>
+                        <input type="text" id="razaoSocial">
+                    </div>
+                    <div class="form-group">
+                        <label for="cnpj">CNPJ:</label>
+                        <input type="text" id="cnpj" placeholder="00.000.000/0000-00">
+                    </div>
+                    <div class="form-group">
+                        <label for="inscricaoEstadual">Inscrição Estadual:</label>
+                        <input type="text" id="inscricaoEstadual">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="telefone">Telefone:</label>
+                    <input type="tel" id="telefone" required>
+                </div>
+                <div class="form-group">
+                    <label for="endereco">Endereço Completo:</label>
+                    <textarea id="endereco" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="senha">Senha:</label>
+                    <div class="password-input">
+                        <input type="password" id="senha" required>
+                        <button type="button" class="password-toggle" onclick="togglePassword('senha')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="confirmarSenha">Confirmar Senha:</label>
+                    <div class="password-input">
+                        <input type="password" id="confirmarSenha" required>
+                        <button type="button" class="password-toggle" onclick="togglePassword('confirmarSenha')">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="login-btn">Cadastrar</button>
+            </form>
+
+            <div class="login-demo">
+                <p>Não tem uma conta? <a href="#" onclick="toggleForm()">Cadastre-se</a></p>
+                <p>Já tem uma conta? <a href="#" onclick="toggleForm()">Fazer login</a></p>
+            </div>
+
+            <div class="login-demo">
+                <p>Contas de demonstração:</p>
+                <div class="demo-accounts">
+                    <button class="demo-btn" onclick="loginDemo('user')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Cliente
+                    </button>
+                    <button class="demo-btn" onclick="loginDemo('admin')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2l3.09 6.26L22 9l-5 4.87 1.18 6.88L12 17.77l-6.18 2.98L7 14.87 2 9l6.91-1.74L12 2z"></path>
+                        </svg>
+                        Admin
+                    </button>
+                </div>
+            </div>
+            </div>
+            <div class="login-footer">
+                <p>© 2024 Mercado Digital. Todos os direitos reservados.</p>
+        </div>
+    </div>
+
     <!-- User Interface -->
-    <div id="userInterface" class="interface">
+    <div id="userInterface" class="interface hidden">
         <!-- User Header -->
         <header class="header user-header">
             <div class="container">
@@ -27,17 +186,19 @@
                     <nav class="nav">
                         <a href="#user-produtos" class="nav-link active" data-section="user-produtos">Produtos</a>
                         <a href="#user-carrinho" class="nav-link" data-section="user-carrinho">
-                            Carrinho
-                            <span id="cart-count" class="cart-count">0</span>
+                        Carrinho
+                        <span id="cart-count" class="cart-count">0</span>
                         </a>
                         <a href="#user-pedidos" class="nav-link" data-section="user-pedidos">Meus Pedidos</a>
                         <a href="#user-entregas" class="nav-link" data-section="user-entregas">Entregas</a>
-                        <div class="user-info">
-                            <span id="user-email" class="user-email">usuario@exemplo.com</span>
-                            <span id="user-type" class="user-type">Cliente</span>
-                            <button class="btn btn-secondary btn-small" onclick="logout()">Sair</button>
-                        </div>
                     </nav>
+                    <div class="user-info">
+                        <div class="user-details">
+                            <span id="user-email" class="user-email"></span>
+                            <span id="user-type" class="user-type"></span>
+                        </div>
+                        <button class="btn btn-secondary btn-small" onclick="logout()">Sair</button>
+                    </div>  
                 </div>
             </div>
         </header>
@@ -130,11 +291,14 @@
                         <a href="#produtos" class="nav-link" data-section="produtos">Produtos</a>
                         <a href="#pedidos" class="nav-link" data-section="pedidos">Pedidos</a>
                         <a href="#entregas" class="nav-link" data-section="entregas">Entregas</a>
-                        <div class="user-info">
-                            <span id="admin-email" class="user-email">admin@mercadodigital.com</span>
-                            <button class="btn btn-secondary btn-small" onclick="logout()">Sair</button>
-                        </div>
                     </nav>
+                    <div class="user-info">
+                        <div class="user-details">
+                            <span id="user-email" class="user-email"></span>
+                            <span id="user-type" class="user-type"></span>
+                        </div>
+                        <button class="btn btn-secondary btn-small" onclick="logout()">Sair</button>
+                    </div>
                 </div>
             </div>
         </header>
@@ -245,13 +409,6 @@
                 <section id="clientes" class="section">
                     <div class="section-header">
                         <h1>Gestão de Clientes</h1>
-                        <button class="btn btn-primary" onclick="openModal('clienteModal')">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                            Novo Cliente
-                        </button>
                     </div>
 
                     <div class="table-container">
@@ -264,7 +421,6 @@
                                     <th>Documento</th>
                                     <th>Email</th>
                                     <th>Telefone</th>
-                                    <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="clientes-tbody">
@@ -296,13 +452,6 @@
                 <section id="pedidos" class="section">
                     <div class="section-header">
                         <h1>Gestão de Pedidos</h1>
-                        <button class="btn btn-primary" onclick="openModal('pedidoModal')">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                            Novo Pedido
-                        </button>
                     </div>
 
                     <div class="table-container">
@@ -315,7 +464,6 @@
                                     <th>Total</th>
                                     <th>Status</th>
                                     <th>Pagamento</th>
-                                    <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="pedidos-tbody">
@@ -347,91 +495,6 @@
                 </section>
             </div>
         </main>
-    </div>
-
-    <!-- Modals (Owner only) -->
-    <!-- Modal Cliente -->
-    <div id="clienteModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Cadastro de Cliente</h2>
-                <span class="close" onclick="closeModal('clienteModal')">&times;</span>
-            </div>
-            <form id="clienteForm" onsubmit="salvarCliente(event)">
-                <div class="form-group">
-                    <label>Tipo de Cliente:</label>
-                    <div class="radio-group">
-                        <label class="radio-label">
-                            <input type="radio" name="tipo" value="PF" checked onchange="toggleClienteFields()">
-                            <span>Pessoa Física (PF)</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="tipo" value="PJ" onchange="toggleClienteFields()">
-                            <span>Pessoa Jurídica (PJ)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div id="campos-pf" class="campos-tipo">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="nome">Nome Completo:</label>
-                            <input type="text" id="nome" name="nome" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="cpf">CPF:</label>
-                            <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="data-nascimento">Data de Nascimento:</label>
-                            <input type="date" id="data-nascimento" name="dataNascimento">
-                        </div>
-                    </div>
-                </div>
-
-                <div id="campos-pj" class="campos-tipo">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="razao-social">Razão Social:</label>
-                            <input type="text" id="razao-social" name="razaoSocial">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="cnpj">CNPJ:</label>
-                            <input type="text" id="cnpj" name="cnpj" placeholder="00.000.000/0000-00">
-                        </div>
-                        <div class="form-group">
-                            <label for="inscricao-estadual">Inscrição Estadual:</label>
-                            <input type="text" id="inscricao-estadual" name="inscricaoEstadual">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="email">Email:</label>
-                        <input type="email" id="email" name="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="telefone">Telefone:</label>
-                        <input type="tel" id="telefone" name="telefone" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="endereco">Endereço Completo:</label>
-                    <textarea id="endereco" name="endereco" rows="3" required></textarea>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('clienteModal')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar Cliente</button>
-                </div>
-            </form>
-        </div>
     </div>
 
     <!-- Modal Produto -->
@@ -489,75 +552,6 @@
         </div>
     </div>
 
-    <!-- Modal Pedido -->
-    <div id="pedidoModal" class="modal">
-        <div class="modal-content large">
-            <div class="modal-header">
-                <h2>Novo Pedido</h2>
-                <span class="close" onclick="closeModal('pedidoModal')">&times;</span>
-            </div>
-            <form id="pedidoForm" onsubmit="salvarPedido(event)">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="pedido-cliente">Cliente:</label>
-                        <select id="pedido-cliente" name="cliente" required>
-                            <option value="">Selecione um cliente...</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="pedido-data">Data do Pedido:</label>
-                        <input type="date" id="pedido-data" name="data" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Produtos do Pedido:</label>
-                    <div id="produtos-pedido">
-                        <div class="produto-item">
-                            <label for="produto">Produto:</label>
-                            <select name="produto" id="produto" required>
-                            <option value="">Selecione um produto...</option>
-                            </select>
-                            <input type="number" name="quantidade" placeholder="Qtd" min="1" required>
-                            <button type="button" class="btn btn-small btn-danger" onclick="removerProdutoPedido(this)">Remover</button>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-small btn-secondary" onclick="adicionarProdutoPedido()">Adicionar Produto</button>
-                </div>
-
-                <div class="form-group">
-                    <label>Formas de Pagamento:</label>
-                    <div id="formas-pagamento">
-                        <div class="pagamento-item">
-                            <label for="formaPagamento">Forma Pagamento:</label>
-                            <select name="formaPagamento" id="formaPagamento" required>
-                                <option value="">Selecione...</option>
-                                <option value="dinheiro">Dinheiro</option>
-                                <option value="cartao-credito">Cartão de Crédito</option>
-                                <option value="cartao-debito">Cartão de Débito</option>
-                                <option value="pix">PIX</option>
-                                <option value="boleto">Boleto</option>
-                            </select>
-                            <input type="number" name="valorPagamento" placeholder="Valor (R$)" step="0.01" min="0" required>
-                            <button type="button" class="btn btn-small btn-danger" onclick="removerFormaPagamento(this)">Remover</button>
-                        </div>
-                    </div>
-                    <button type="button" class="btn btn-small btn-secondary" onclick="adicionarFormaPagamento()">Adicionar Forma de Pagamento</button>
-                </div>
-
-                <div class="form-group">
-                    <label for="pedido-observacoes">Observações:</label>
-                    <textarea id="pedido-observacoes" name="observacoes" rows="3"></textarea>
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('pedidoModal')">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Criar Pedido</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <!-- Modal Checkout (User) -->
     <div id="checkoutModal" class="modal">
         <div class="modal-content">
@@ -566,68 +560,6 @@
                 <span class="close" onclick="closeModal('checkoutModal')">&times;</span>
             </div>
             <form id="checkoutForm" onsubmit="processarCompra(event)">
-                <div class="form-group">
-                    <label>Dados do Cliente:</label>
-                    <div class="radio-group">
-                        <label class="radio-label">
-                            <input type="radio" name="tipoCliente" value="PF" checked onchange="toggleCheckoutFields()">
-                            <span>Pessoa Física (PF)</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="tipoCliente" value="PJ" onchange="toggleCheckoutFields()">
-                            <span>Pessoa Jurídica (PJ)</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div id="checkout-campos-pf" class="campos-tipo">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="checkout-nome">Nome Completo:</label>
-                            <input type="text" id="checkout-nome" name="nome" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="checkout-cpf">CPF:</label>
-                            <input type="text" id="checkout-cpf" name="cpf" placeholder="000.000.000-00">
-                        </div>
-                    </div>
-                </div>
-
-                <div id="checkout-campos-pj" class="campos-tipo">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="checkout-razao-social">Razão Social:</label>
-                            <input type="text" id="checkout-razao-social" name="razaoSocial">
-                        </div>
-                        <div class="form-group">
-                            <label for="checkout-cnpj">CNPJ:</label>
-                            <input type="text" id="checkout-cnpj" name="cnpj" placeholder="00.000.000/0000-00">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="checkout-inscricao-estadual">Inscrição Estadual:</label>
-                            <input type="text" id="checkout-inscricao-estadual" name="inscricaoEstadual">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="checkout-email">Email:</label>
-                        <input type="email" id="checkout-email" name="email" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="checkout-telefone">Telefone:</label>
-                        <input type="tel" id="checkout-telefone" name="telefone" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="checkout-endereco">Endereço Completo:</label>
-                    <textarea id="checkout-endereco" name="endereco" rows="3" required></textarea>
-                </div>
-
                 <div class="form-group">
                     <label for="checkout-pagamento">Forma de Pagamento:</label>
                     <select id="checkout-pagamento" name="formaPagamento" required>
@@ -655,6 +587,7 @@
             </form>
         </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
