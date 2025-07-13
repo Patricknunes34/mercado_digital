@@ -1,1664 +1,1096 @@
-// Sistema de E-commerce - Mercado Digital (sem login)
-// Sistema com Usuário e Dono
+// ==================== CONFIGURAÇÕES GLOBAIS ====================
+const API_BASE_URL = 'http://localhost:3000/api';
 
-class MercadoDigital {
-    constructor() {
-        this.apiUrl = 'http://localhost:3000/api';
-        this.userType = 'user'; // Definir como usuário por padrão
-        this.currentUser = {
-            email: 'usuario@exemplo.com',
-            type: 'user',
-            name: 'Usuário Demo'
+// Estado global da aplicação
+let currentUser = null;
+let currentUserType = null;
+let carrinho = [];
+let produtos = [];
+let clientes = [];
+let pedidos = [];
+let entregas = [];
+
+// ==================== FUNÇÕES DE UTILIDADE ====================
+
+// Função para fazer requisições HTTP
+async function apiRequest(endpoint, options = {}) {
+    try {
+        const url = `${API_BASE_URL}${endpoint}`;
+        const config = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            },
+            ...options
         };
-        this.clientes = [];
-        this.produtos = [];
-        this.pedidos = [];
-        this.entregas = [];
-        this.carrinho = [];
-        this.editandoCliente = null;
-        this.editandoProduto = null;
-        
-        this.init();
-    }
 
-    async init() {
-        this.setupEventListeners();
-        // Inicializar diretamente na interface do usuário
-        await this.initUserInterface();
-    }
-
-    setupEventListeners() {
-        // Event listeners para navegação
-        document.addEventListener('click', (e) => {
-            if (e.target.matches('.nav-link')) {
-                e.preventDefault();
-                const section = e.target.dataset.section;
-                if (section) {
-                    this.showSection(section);
-                    this.updateActiveNav(e.target);
-                }
-            }
-        });
-
-        // Fechar modal clicando fora
-        window.onclick = (event) => {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        }
-    }
-
-    // Função para alternar entre usuário e admin
-    async switchToAdmin() {
-        this.userType = 'owner';
-        this.currentUser = {
-            email: 'admin@mercadodigital.com',
-            type: 'owner',
-            name: 'Administrador'
-        };
-        
-        // Esconder interface do usuário
-        const userInterface = document.getElementById('userInterface');
-        if (userInterface) {
-            userInterface.classList.add('hidden');
+        console.log(`Fazendo requisição para: ${url}`);
+        if (options.body) {
+            console.log('Dados enviados:', options.body);
         }
         
-        // Mostrar interface do admin
-        const ownerInterface = document.getElementById('ownerInterface');
-        if (ownerInterface) {
-            ownerInterface.classList.remove('hidden');
+        const response = await fetch(url, config);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Erro ${response.status}:`, errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        await this.initOwnerInterface();
+        const data = await response.json();
+        console.log('Resposta recebida:', data);
+        return data;
+    } catch (error) {
+        console.error('Erro na requisição:', error);
+        throw error;
     }
+}
 
-    async switchToUser() {
-        this.userType = 'user';
-        this.currentUser = {
-            email: 'usuario@exemplo.com',
-            type: 'user',
-            name: 'Usuário Demo'
-        };
-        
-        // Esconder interface do admin
-        const ownerInterface = document.getElementById('ownerInterface');
-        if (ownerInterface) {
-            ownerInterface.classList.add('hidden');
-        }
-        
-        // Mostrar interface do usuário
-        const userInterface = document.getElementById('userInterface');
-        if (userInterface) {
-            userInterface.classList.remove('hidden');
-        }
-        
-        await this.initUserInterface();
-    }
-
-    logout() {
-        // Apenas recarregar a página para reiniciar
-        window.location.reload();
-    }
-
-    // ==================== USER INTERFACE ====================
+// Função para mostrar notificações
+function showNotification(message, type = 'info') {
+    // Criar elemento de notificação
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
     
-    async initUserInterface() {
-        // Garantir que a interface do usuário está visível
-        const userInterface = document.getElementById('userInterface');
-        if (userInterface) {
-            userInterface.classList.remove('hidden');
+    // Adicionar estilos inline
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 5px;
+        color: white;
+        font-weight: 500;
+        z-index: 10000;
+        max-width: 300px;
+        word-wrap: break-word;
+    `;
+    
+    // Definir cor baseada no tipo
+    switch(type) {
+        case 'success':
+            notification.style.backgroundColor = '#4CAF50';
+            break;
+        case 'error':
+            notification.style.backgroundColor = '#f44336';
+            break;
+        case 'warning':
+            notification.style.backgroundColor = '#ff9800';
+            break;
+        default:
+            notification.style.backgroundColor = '#2196F3';
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
         }
-        
-        await this.loadProdutos();
-        this.renderUserProdutos();
-        this.updateCartCount();
-        this.setupFormHandlers();
-        this.showSection('user-produtos');
+    }, 5000);
+}
+
+// Função para formatar moeda
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
+}
+
+// Função para formatar data
+function formatDate(dateString) {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+}
+
+// ==================== FUNÇÕES DE AUTENTICAÇÃO ====================
+
+// Toggle entre formulários de login e cadastro
+function toggleForm() {
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const loginLinks = document.querySelectorAll('.login-demo p');
+    
+    if (loginForm.style.display === 'none') {
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
+        loginLinks[0].style.display = 'block';
+        loginLinks[1].style.display = 'none';
+    } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        loginLinks[0].style.display = 'none';
+        loginLinks[1].style.display = 'block';
     }
+}
 
-    renderUserProdutos() {
-        const grid = document.getElementById('user-produtos-grid');
-        if (!grid) return;
-        
-        grid.innerHTML = '';
-
-        this.produtos.forEach(produto => {
-            if (produto.estoque > 0) {
-                const preco = parseFloat(produto.preco) || 0;
-                const card = document.createElement('div');
-                card.className = 'product-card';
-                card.innerHTML = `
-                    <img src="${produto.imagem || 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&q=80&w=400'}" 
-                         alt="${produto.nome}" class="product-image">
-                    <div class="product-content">
-                        <div class="product-category">${produto.categoria}</div>
-                        <h3 class="product-title">${produto.nome}</h3>
-                        <p class="product-description">${produto.descricao || 'Sem descrição disponível'}</p>
-                        <div class="product-footer">
-                            <span class="product-price">R$ ${preco.toFixed(2)}</span>
-                            <span class="product-stock">Estoque: ${produto.estoque}</span>
-                        </div>
-                        <div class="quantity-selector">
-                            <button class="quantity-btn" onclick="mercado.changeQuantity(${produto.id}, -1)">-</button>
-                            <input type="number" class="quantity-input" id="qty-${produto.id}" value="1" min="1" max="${produto.estoque}">
-                            <button class="quantity-btn" onclick="mercado.changeQuantity(${produto.id}, 1)">+</button>
-                        </div>
-                        <button class="btn btn-primary btn-full" onclick="mercado.addToCart(${produto.id})">
-                            Adicionar ao Carrinho
-                        </button>
-                    </div>
-                `;
-                grid.appendChild(card);
-            }
-        });
-    }
-
-    changeQuantity(produtoId, change) {
-        const input = document.getElementById(`qty-${produtoId}`);
-        if (!input) return;
-        
-        const produto = this.produtos.find(p => p.id === produtoId);
-        if (!produto) return;
-        
-        let newValue = parseInt(input.value) + change;
-        
-        if (newValue < 1) newValue = 1;
-        if (newValue > produto.estoque) newValue = produto.estoque;
-        
-        input.value = newValue;
-    }
-
-    addToCart(produtoId) {
-        const produto = this.produtos.find(p => p.id === produtoId);
-        if (!produto) return;
-        
-        const quantityInput = document.getElementById(`qty-${produtoId}`);
-        if (!quantityInput) return;
-        
-        const quantidade = parseInt(quantityInput.value) || 1;
-        const preco = parseFloat(produto.preco) || 0;
-        
-        const existingItem = this.carrinho.find(item => item.id === produtoId);
-        
-        if (existingItem) {
-            existingItem.quantidade += quantidade;
+// Toggle campos PF/PJ no cadastro
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoPF = document.getElementById('tipoPF');
+    const tipoPJ = document.getElementById('tipoPJ');
+    const camposPF = document.getElementById('campos-pf');
+    const camposPJ = document.getElementById('campos-pj');
+    
+    function toggleCampos() {
+        if (tipoPF.checked) {
+            camposPF.style.display = 'block';
+            camposPJ.style.display = 'none';
         } else {
-            this.carrinho.push({
-                id: produto.id,
-                nome: produto.nome,
-                preco: preco,
-                imagem: produto.imagem,
-                quantidade: quantidade
-            });
-        }
-        
-        this.updateCartCount();
-        this.showNotification('Produto adicionado ao carrinho!', 'success');
-        quantityInput.value = 1;
-    }
-
-    updateCartCount() {
-        const count = this.carrinho.reduce((total, item) => total + (parseInt(item.quantidade) || 0), 0);
-        const cartCountElement = document.getElementById('cart-count');
-        if (cartCountElement) {
-            cartCountElement.textContent = count;
+            camposPF.style.display = 'none';
+            camposPJ.style.display = 'block';
         }
     }
+    
+    tipoPF.addEventListener('change', toggleCampos);
+    tipoPJ.addEventListener('change', toggleCampos);
+    
+    // Inicializar
+    toggleCampos();
+});
 
-    renderCarrinho() {
-        const container = document.getElementById('cart-items');
-        const totalElement = document.getElementById('cart-total');
-        const checkoutBtn = document.getElementById('checkout-btn');
+// Login demo
+function loginDemo(type) {
+    if (type === 'admin') {
+        currentUser = { email: 'admin@mercadodigital.com', tipo: 'admin' };
+        currentUserType = 'admin';
+        showOwnerInterface();
+    } else {
+        currentUser = { email: 'cliente@exemplo.com', tipo: 'PF', nome: 'Cliente Demo', id: 1 };
+        currentUserType = 'user';
+        showUserInterface();
+    }
+    showNotification('Login realizado com sucesso!', 'success');
+}
+
+// Processar login
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    try {
+        const loginData = {
+            email: email,
+            password: password
+        };
         
-        if (!container || !totalElement || !checkoutBtn) return;
-        
-        if (this.carrinho.length === 0) {
-            container.innerHTML = '<div class="empty-cart">Seu carrinho está vazio</div>';
-            totalElement.textContent = 'R$ 0,00';
-            checkoutBtn.disabled = true;
+        // Verifica se é o admin
+        if (email === 'admin@mercadodigital.com') {
+            currentUser = { 
+                email: 'admin@mercadodigital.com', 
+                tipo: 'admin', 
+                nome: 'Administrador',
+                id: 1
+            };
+            currentUserType = 'admin';
+            showOwnerInterface();
+            showNotification('Login realizado com sucesso!', 'success');
             return;
         }
         
-        container.innerHTML = '';
-        let total = 0;
+        // Busca cliente no banco
+        const clientes = await apiRequest('/clientes');
+        const clienteEncontrado = clientes.find(c => c.email === email);
         
-        this.carrinho.forEach(item => {
-            const preco = parseFloat(item.preco) || 0;
-            const quantidade = parseInt(item.quantidade) || 0;
-            const itemTotal = preco * quantidade;
-            total += itemTotal;
+        if (clienteEncontrado) {
+            currentUser = {
+                id: clienteEncontrado.id,
+                email: clienteEncontrado.email,
+                tipo: clienteEncontrado.tipo,
+                nome: clienteEncontrado.nome_razao || clienteEncontrado.nome || 'Cliente'
+            };
+            currentUserType = 'user';
+            showUserInterface();
+            showNotification('Login realizado com sucesso!', 'success');
+        } else {
+            throw new Error('Usuário não encontrado');
+        }
+        
+    } catch (error) {
+        showNotification('Erro no login: ' + error.message, 'error');
+    }
+});
 
-            const cartItem = document.createElement('div');
-            cartItem.className = 'cart-item';
-            cartItem.innerHTML = `
-                <img src="${item.imagem || 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&q=80&w=400'}" 
-                     alt="${item.nome}" class="cart-item-image">
-                <div class="cart-item-info">
-                    <div class="cart-item-name">${item.nome}</div>
-                    <div class="cart-item-price">R$ ${preco.toFixed(2)}</div>
-                </div>
-                <div class="cart-item-quantity">
-                    <button class="quantity-btn" onclick="mercado.updateCartQuantity(${item.id}, -1)">-</button>
-                    <span>${quantidade}</span>
-                    <button class="quantity-btn" onclick="mercado.updateCartQuantity(${item.id}, 1)">+</button>
-                </div>
-                <div class="cart-item-price">R$ ${itemTotal.toFixed(2)}</div>
-                <div class="cart-item-remove" onclick="mercado.removeFromCart(${item.id})">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3,6 5,6 21,6"></polyline>
-                        <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
-                    </svg>
-                </div>
-            `;
-            container.appendChild(cartItem);
+// Processar cadastro
+document.getElementById('registerForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    try {
+        const tipo = document.querySelector('input[name="tipo"]:checked').value;
+        
+        const clienteData = {
+            tipo: tipo,
+            email: document.getElementById('email').value,
+            telefone: document.getElementById('telefone').value,
+            endereco: document.getElementById('endereco').value
+        };
+        
+        if (tipo === 'PF') {
+            clienteData.nome = document.getElementById('nome').value;
+            clienteData.cpf = document.getElementById('cpf').value;
+            clienteData.dataNascimento = document.getElementById('dataNascimento').value;
+        } else {
+            clienteData.razaoSocial = document.getElementById('razaoSocial').value;
+            clienteData.cnpj = document.getElementById('cnpj').value;
+            clienteData.inscricaoEstadual = document.getElementById('inscricaoEstadual').value;
+            clienteData.nomeFantasia = document.getElementById('nomeFantasia') ? document.getElementById('nomeFantasia').value : null;
+        }
+        
+        // Validar campos obrigatórios
+        if (!clienteData.email || !clienteData.telefone || !clienteData.endereco) {
+            showNotification('Email, telefone e endereço são obrigatórios', 'error');
+            return;
+        }
+        
+        if (tipo === 'PF' && (!clienteData.nome || !clienteData.cpf)) {
+            showNotification('Nome e CPF são obrigatórios para Pessoa Física', 'error');
+            return;
+        }
+        
+        if (tipo === 'PJ' && (!clienteData.razaoSocial || !clienteData.cnpj || !clienteData.inscricaoEstadual)) {
+            showNotification('Razão Social, CNPJ e Inscrição Estadual são obrigatórios para Pessoa Jurídica', 'error');
+            return;
+        }
+        
+        console.log('Enviando dados do cliente:', clienteData);
+        
+        const response = await apiRequest('/clientes', {
+            method: 'POST',
+            body: JSON.stringify(clienteData)
         });
         
-        totalElement.textContent = `R$ ${total.toFixed(2)}`;
-        checkoutBtn.disabled = false;
-    }
-
-    updateCartQuantity(produtoId, change) {
-        const item = this.carrinho.find(item => item.id === produtoId);
-        if (item) {
-            item.quantidade = (parseInt(item.quantidade) || 0) + change;
-            if (item.quantidade <= 0) {
-                this.removeFromCart(produtoId);
-            } else {
-                this.renderCarrinho();
-                this.updateCartCount();
-            }
-        }
-    }
-
-    removeFromCart(produtoId) {
-        this.carrinho = this.carrinho.filter(item => item.id !== produtoId);
-        this.renderCarrinho();
-        this.updateCartCount();
-        this.showNotification('Produto removido do carrinho', 'warning');
-    }
-
-    finalizarCompra() {
-        if (this.carrinho.length === 0) return;
-        
-        // Preencher resumo do checkout
-        const checkoutItems = document.getElementById('checkout-items');
-        const checkoutTotal = document.getElementById('checkout-total');
-        
-        if (!checkoutItems || !checkoutTotal) return;
-        
-        checkoutItems.innerHTML = '';
-        let total = 0;
-        
-        this.carrinho.forEach(item => {
-            const preco = parseFloat(item.preco) || 0;
-            const quantidade = parseInt(item.quantidade) || 0;
-            const itemTotal = preco * quantidade;
-            total += itemTotal;
+        if (response.success) {
+            showNotification('Cadastro realizado com sucesso!', 'success');
+            document.getElementById('registerForm').reset();
             
-            const checkoutItem = document.createElement('div');
-            checkoutItem.className = 'checkout-item';
-            checkoutItem.innerHTML = `
-                <span>${item.nome} x ${quantidade}</span>
-                <span>R$ ${itemTotal.toFixed(2)}</span>
-            `;
-            checkoutItems.appendChild(checkoutItem);
+            // Fazer login automático após cadastro
+            currentUser = {
+                id: response.contaId,
+                email: clienteData.email,
+                tipo: clienteData.tipo,
+                nome: clienteData.tipo === 'PF' ? clienteData.nome : clienteData.razaoSocial
+            };
+            currentUserType = 'user';
+            showUserInterface();
+            
+            toggleForm(); // Voltar para o login
+        } else {
+            showNotification('Erro no cadastro: ' + (response.error || 'Erro desconhecido'), 'error');
+        }
+    } catch (error) {
+        console.error('Erro detalhado:', error);
+        showNotification('Erro ao realizar cadastro: ' + error.message, 'error');
+    }
+});
+
+// Logout
+function logout() {
+    currentUser = null;
+    currentUserType = null;
+    carrinho = [];
+    
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('userInterface').classList.add('hidden');
+    document.getElementById('ownerInterface').classList.add('hidden');
+    
+    showNotification('Logout realizado com sucesso!', 'success');
+}
+
+// ==================== FUNÇÕES DE INTERFACE ====================
+
+// Mostrar interface do usuário
+function showUserInterface() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('userInterface').classList.remove('hidden');
+    document.getElementById('ownerInterface').classList.add('hidden');
+    
+    // Atualizar informações do usuário
+    document.getElementById('user-email').textContent = currentUser.nome || currentUser.email;
+    document.getElementById('user-type').textContent = currentUser.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica';
+    
+    // Carregar dados iniciais
+    carregarProdutosUser();
+    carregarPedidosUser();
+    carregarEntregasUser();
+}
+
+// Mostrar interface do admin
+function showOwnerInterface() {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('userInterface').classList.add('hidden');
+    document.getElementById('ownerInterface').classList.remove('hidden');
+    
+    // Carregar dados iniciais
+    setTimeout(() => {
+        carregarDashboard();
+        carregarClientes();
+        carregarProdutos();
+        carregarPedidos();
+        carregarEntregas();
+    }, 100);
+}
+
+// Navegação entre seções
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('nav-link')) {
+        e.preventDefault();
+        
+        const targetSection = e.target.getAttribute('data-section');
+        
+        // Remover classe active de todos os links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
         });
         
-        checkoutTotal.textContent = `R$ ${total.toFixed(2)}`;
+        // Adicionar classe active ao link clicado
+        e.target.classList.add('active');
         
-        openModal('checkoutModal');
-        toggleCheckoutFields();
-    }
-
-    // Verificar se documento já existe
-    async verificarDocumentoExistente(tipo, documento) {
-        try {
-            const response = await this.apiRequest(`/clientes/verificar-documento?tipo=${tipo}&documento=${encodeURIComponent(documento)}`);
-            return response;
-        } catch (error) {
-            console.error('Erro ao verificar documento:', error);
-            return { exists: false };
+        // Esconder todas as seções
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.remove('active');
+        });
+        
+        // Mostrar seção alvo
+        const section = document.getElementById(targetSection);
+        if (section) {
+            section.classList.add('active');
         }
     }
+});
 
-    // Mostrar modal de confirmação para documento existente
-    mostrarModalDocumentoExistente(clienteExistente, callback) {
-        const modal = document.createElement('div');
-        modal.className = 'modal active';
-        modal.style.zIndex = '10001';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Cliente já cadastrado</h2>
-                </div>
-                <div style="padding: 1.5rem;">
-                    <p style="margin-bottom: 1rem;">Este documento já está cadastrado no sistema:</p>
-                    <div style="background: var(--background-color); padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;">
-                        <strong>Nome/Razão Social:</strong> ${clienteExistente.nome || clienteExistente.razao_social}<br>
-                        <strong>Email:</strong> ${clienteExistente.email}<br>
-                        <strong>Telefone:</strong> ${clienteExistente.telefone}
-                    </div>
-                    <p>Deseja usar este cliente para o pedido?</p>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancelar</button>
-                    <button type="button" class="btn btn-primary" onclick="mercado.usarClienteExistente(${clienteExistente.conta_id}); this.closest('.modal').remove();">Usar Cliente</button>
+// ==================== FUNÇÕES DO DASHBOARD ====================
+
+async function carregarDashboard() {
+    try {
+        console.log('Carregando dashboard...');
+        const stats = await apiRequest('/dashboard');
+        console.log('Stats recebidas:', stats);
+        
+        document.getElementById('total-clientes').textContent = stats.totalClientes || 0;
+        document.getElementById('total-produtos').textContent = stats.totalProdutos || 0;
+        document.getElementById('total-pedidos').textContent = stats.totalPedidos || 0;
+        document.getElementById('total-entregas').textContent = stats.totalEntregas || 0;
+        
+    } catch (error) {
+        console.error('Erro ao carregar dashboard:', error);
+        // Definir valores padrão em caso de erro
+        document.getElementById('total-clientes').textContent = '0';
+        document.getElementById('total-produtos').textContent = '0';
+        document.getElementById('total-pedidos').textContent = '0';
+        document.getElementById('total-entregas').textContent = '0';
+    }
+}
+
+// ==================== FUNÇÕES DE CLIENTES ====================
+
+async function carregarClientes() {
+    try {
+        clientes = await apiRequest('/clientes');
+        renderizarClientes();
+    } catch (error) {
+        console.error('Erro ao carregar clientes:', error);
+        showNotification('Erro ao carregar clientes', 'error');
+    }
+}
+
+function renderizarClientes() {
+    const tbody = document.getElementById('clientes-tbody');
+    if (!tbody) {
+        console.warn('Elemento clientes-tbody não encontrado');
+        return;
+    }
+    
+    tbody.innerHTML = '';
+    
+    if (!clientes || clientes.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="6" style="text-align: center; padding: 20px;">Nenhum cliente cadastrado</td>';
+        tbody.appendChild(row);
+        return;
+    }
+    
+    clientes.forEach(cliente => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${cliente.id}</td>
+            <td>${cliente.nome_razao || cliente.nome || cliente.razaoSocial || 'N/A'}</td>
+            <td>${cliente.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}</td>
+            <td>${cliente.documento || cliente.cpf || cliente.cnpj || 'N/A'}</td>
+            <td>${cliente.email}</td>
+            <td>${cliente.telefone || 'N/A'}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// ==================== FUNÇÕES DE PRODUTOS ====================
+
+async function carregarProdutos() {
+    try {
+        produtos = await apiRequest('/produtos');
+        renderizarProdutos();
+    } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        showNotification('Erro ao carregar produtos', 'error');
+    }
+}
+
+function renderizarProdutos() {
+    const grid = document.getElementById('produtos-grid');
+    grid.innerHTML = '';
+    
+    produtos.forEach(produto => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+            <div class="product-image">
+                <img src="${produto.imagem || 'https://via.placeholder.com/200x150?text=Produto'}" alt="${produto.nome}">
+            </div>
+            <div class="product-info">
+                <h3>${produto.nome}</h3>
+                <p class="product-category">${produto.categoria}</p>
+                <p class="product-description">${produto.descricao || ''}</p>
+                <div class="product-price">${formatCurrency(produto.preco)}</div>
+                <div class="product-stock">Estoque: ${produto.estoque}</div>
+                <div class="product-actions">
+                    <button class="btn btn-primary btn-small" onclick="editarProduto(${produto.id})">Editar</button>
+                    <button class="btn btn-danger btn-small" onclick="excluirProduto(${produto.id})">Excluir</button>
                 </div>
             </div>
         `;
-        document.body.appendChild(modal);
+        grid.appendChild(card);
+    });
+}
+
+async function carregarProdutosUser() {
+    try {
+        produtos = await apiRequest('/produtos');
+        renderizarProdutosUser();
+    } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        showNotification('Erro ao carregar produtos', 'error');
     }
+}
 
-    // Usar cliente existente
-    async usarClienteExistente(contaId) {
-        try {
-            const totalCarrinho = this.carrinho.reduce((total, item) => {
-                const preco = parseFloat(item.preco) || 0;
-                const quantidade = parseInt(item.quantidade) || 0;
-                return total + (preco * quantidade);
-            }, 0);
-
-            const produtos = this.carrinho.map(item => ({
-                id_produto: item.id,
-                quantidade: parseInt(item.quantidade) || 0
-            }));
-
-            const formData = new FormData(document.getElementById('checkoutForm'));
-            const formasPagamento = [{
-                tipo: formData.get('formaPagamento'),
-                valor: totalCarrinho
-            }];
-
-            const pedidoData = {
-                id_conta: contaId,
-                data_pedido: new Date().toISOString().split('T')[0],
-                produtos: produtos,
-                formas_pagamento: formasPagamento,
-                observacoes: 'Pedido realizado pelo usuário com cliente existente'
-            };
-
-            const pedidoResult = await this.apiRequest('/pedidos', {
-                method: 'POST',
-                body: JSON.stringify(pedidoData)
-            });
-            
-            if (pedidoResult.success) {
-                this.showNotification('Pedido realizado com sucesso!', 'success');
-                this.carrinho = [];
-                this.updateCartCount();
-                closeModal('checkoutModal');
-                this.showSection('user-pedidos');
-                await this.loadUserPedidos();
-            } else {
-                this.showNotification('Erro ao criar pedido', 'error');
-            }
-        } catch (error) {
-            console.error('Erro ao usar cliente existente:', error);
-            this.showNotification('Erro ao processar pedido', 'error');
-        }
-    }
-
-    async processarCompra(event) {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        const clienteData = Object.fromEntries(formData.entries());
-        
-        // Client-side validation
-        if (!clienteData.tipoCliente) {
-            this.showNotification('Selecione o tipo de cliente (PF/PJ)', 'error');
-            return;
-        }
-        if (!clienteData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteData.email)) {
-            this.showNotification('Email inválido', 'error');
-            return;
-        }
-        if (!clienteData.telefone) {
-            this.showNotification('Telefone é obrigatório', 'error');
-            return;
-        }
-        if (!clienteData.endereco) {
-            this.showNotification('Endereço é obrigatório', 'error');
-            return;
-        }
-        if (!clienteData.formaPagamento) {
-            this.showNotification('Selecione uma forma de pagamento', 'error');
-            return;
-        }
-
-        // Validações específicas por tipo
-        if (clienteData.tipoCliente === 'PF') {
-            if (!clienteData.nome) {
-                this.showNotification('Nome é obrigatório para Pessoa Física', 'error');
-                return;
-            }
-            if (!clienteData.cpf || !/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(clienteData.cpf)) {
-                this.showNotification('CPF inválido (formato: 000.000.000-00)', 'error');
-                return;
-            }
-
-            // Verificar se CPF já existe
-            const verificacao = await this.verificarDocumentoExistente('PF', clienteData.cpf);
-            if (verificacao.exists) {
-                this.mostrarModalDocumentoExistente(verificacao.cliente);
-                return;
-            }
-        } else if (clienteData.tipoCliente === 'PJ') {
-            if (!clienteData.razaoSocial) {
-                this.showNotification('Razão Social é obrigatória para Pessoa Jurídica', 'error');
-                return;
-            }
-            if (!clienteData.cnpj || !/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(clienteData.cnpj)) {
-                this.showNotification('CNPJ inválido (formato: 00.000.000/0000-00)', 'error');
-                return;
-            }
-            if (!clienteData.inscricaoEstadual) {
-                this.showNotification('Inscrição Estadual é obrigatória para Pessoa Jurídica', 'error');
-                return;
-            }
-
-            // Verificar se CNPJ já existe
-            const verificacao = await this.verificarDocumentoExistente('PJ', clienteData.cnpj);
-            if (verificacao.exists) {
-                this.mostrarModalDocumentoExistente(verificacao.cliente);
-                return;
-            }
-        }
-
-        if (this.carrinho.length === 0) {
-            this.showNotification('O carrinho está vazio', 'error');
-            return;
-        }
-
-        try {
-            const apiData = {
-                tipo: clienteData.tipoCliente,
-                email: clienteData.email,
-                telefone: clienteData.telefone,
-                endereco: clienteData.endereco
-            };
-
-            if (clienteData.tipoCliente === 'PF') {
-                apiData.nome = clienteData.nome;
-                apiData.cpf = clienteData.cpf;
-                apiData.dataNascimento = clienteData.dataNascimento || null;
-            } else if (clienteData.tipoCliente === 'PJ') {
-                apiData.razaoSocial = clienteData.razaoSocial;
-                apiData.nomeFantasia = clienteData.nomeFantasia || null;
-                apiData.cnpj = clienteData.cnpj;
-                apiData.inscricaoEstadual = clienteData.inscricaoEstadual || null;
-            }
-
-            const clienteResult = await this.apiRequest('/clientes', {
-                method: 'POST',
-                body: JSON.stringify(apiData)
-            });
-            
-            if (clienteResult.success) {
-                const totalCarrinho = this.carrinho.reduce((total, item) => {
-                    const preco = parseFloat(item.preco) || 0;
-                    const quantidade = parseInt(item.quantidade) || 0;
-                    return total + (preco * quantidade);
-                }, 0);
-
-                const produtos = this.carrinho.map(item => ({
-                    id_produto: item.id,
-                    quantidade: parseInt(item.quantidade) || 0
-                }));
-
-                const formasPagamento = [{
-                    tipo: clienteData.formaPagamento,
-                    valor: totalCarrinho
-                }];
-
-                const pedidoData = {
-                    id_conta: clienteResult.contaId,
-                    data_pedido: new Date().toISOString().split('T')[0],
-                    produtos: produtos,
-                    formas_pagamento: formasPagamento,
-                    observacoes: 'Pedido realizado pelo usuário'
-                };
-
-                const pedidoResult = await this.apiRequest('/pedidos', {
-                    method: 'POST',
-                    body: JSON.stringify(pedidoData)
-                });
-                
-                if (pedidoResult.success) {
-                    this.showNotification('Pedido realizado com sucesso!', 'success');
-                    this.carrinho = [];
-                    this.updateCartCount();
-                    closeModal('checkoutModal');
-                    this.showSection('user-pedidos');
-                    await this.loadUserPedidos();
-                } else {
-                    this.showNotification('Erro ao criar pedido', 'error');
-                }
-            } else {
-                this.showNotification('Erro ao criar cliente', 'error');
-            }
-        } catch (error) {
-            console.error('Erro ao processar compra:', error);
-            this.showNotification('Erro ao processar compra', 'error');
-        }
-    }
-
-    async loadUserPedidos() {
-        try {
-            this.pedidos = await this.apiRequest('/pedidos');
-            this.renderUserPedidos();
-        } catch (error) {
-            console.error('Erro ao carregar pedidos:', error);
-            this.pedidos = [];
-            this.renderUserPedidos();
-        }
-    }
-
-    renderUserPedidos() {
-        const grid = document.getElementById('user-pedidos-grid');
-        if (!grid) return;
-        
-        grid.innerHTML = '';
-
-        this.pedidos.forEach(pedido => {
-            const total = parseFloat(pedido.total) || 0;
-            const card = document.createElement('div');
-            card.className = 'pedido-card';
-            card.innerHTML = `
-                <div class="pedido-header">
-                    <span class="pedido-id">Pedido #${pedido.id}</span>
-                    <span class="pedido-status status-${pedido.status}">${pedido.status}</span>
-                </div>
-                <div class="pedido-info">
-                    <div class="pedido-detail">
-                        <label>Data</label>
-                        <span>${new Date(pedido.data_pedido || pedido.created_at).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                    <div class="pedido-detail">
-                        <label>Total</label>
-                        <span>R$ ${total.toFixed(2)}</span>
-                    </div>
-                    <div class="pedido-detail">
-                        <label>Status</label>
-                        <span>${pedido.status}</span>
-                    </div>
-                </div>
-            `;
-            grid.appendChild(card);
-        });
-    }
-
-    async loadUserEntregas() {
-        try {
-            this.entregas = await this.apiRequest('/entregas');
-            this.renderUserEntregas();
-        } catch (error) {
-            console.error('Erro ao carregar entregas:', error);
-            this.entregas = [];
-            this.renderUserEntregas();
-        }
-    }
-
-    renderUserEntregas() {
-        const grid = document.getElementById('user-entregas-grid');
-        if (!grid) return;
-        
-        grid.innerHTML = '';
-
-        this.entregas.forEach(entrega => {
-            const card = document.createElement('div');
-            card.className = 'entrega-card';
-            
-            let acoesBotao = '';
-            if (entrega.status === 'entregue') {
-                acoesBotao = `
-                    <div class="entrega-actions">
-                        <button class="btn btn-success btn-small" onclick="mercado.confirmarEntrega(${entrega.id})">
-                            Confirmar Recebimento
-                        </button>
-                    </div>
-                `;
-            } else if (entrega.status === 'confirmada') {
-                acoesBotao = `
-                    <div class="entrega-actions">
-                        <div style="color: var(--success-color); font-weight: 600; text-align: center; padding: 0.5rem;">
-                            ✅ Entrega confirmada
-                        </div>
-                    </div>
-                `;
-            }
-
-            card.innerHTML = `
-                <div class="entrega-header">
-                    <span class="entrega-id">Entrega #${entrega.id}</span>
-                    <span class="entrega-status status-${entrega.status}">${entrega.status}</span>
-                </div>
-                <div class="entrega-info">
-                    <div class="entrega-detail">
-                        <label>Pedido</label>
-                        <span>#${entrega.pedido_id}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Código de Rastreio</label>
-                        <span class="codigo-rastreio">${entrega.codigo_rastreio}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Previsão de Entrega</label>
-                        <span>${entrega.previsao_entrega ? new Date(entrega.previsao_entrega).toLocaleDateString('pt-BR') : 'Não definida'}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Status</label>
-                        <span>${entrega.status}</span>
-                    </div>
-                </div>
-                ${acoesBotao}
-            `;
-            grid.appendChild(card);
-        });
-    }
-
-    async confirmarEntrega(entregaId) {
-        try {
-            const result = await this.apiRequest(`/entregas/${entregaId}/confirmar`, {
-                method: 'PUT'
-            });
-
-            if (result.success) {
-                this.showNotification('Entrega confirmada! Obrigado pela preferência.', 'success');
-                // Recarregar entregas e pedidos para atualizar o status
-                await this.loadUserEntregas();
-                await this.loadUserPedidos();
-            }
-        } catch (error) {
-            console.error('Erro ao confirmar entrega:', error);
-            this.showNotification('Erro ao confirmar entrega', 'error');
-        }
-    }
-
-    filtrarProdutos() {
-        const categoriaFilter = document.getElementById('categoria-filter');
-        if (!categoriaFilter) return;
-        
-        const categoria = categoriaFilter.value;
-        const cards = document.querySelectorAll('#user-produtos-grid .product-card');
-        
-        cards.forEach(card => {
-            const cardCategoria = card.querySelector('.product-category');
-            if (cardCategoria) {
-                const categoriaText = cardCategoria.textContent.trim();
-                if (!categoria || categoriaText === categoria) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            }
-        });
-    }
-
-    // ==================== OWNER INTERFACE ====================
+function renderizarProdutosUser() {
+    const grid = document.getElementById('user-produtos-grid');
+    grid.innerHTML = '';
     
-    async initOwnerInterface() {
-        await this.loadDashboard();
-        await this.loadClientes();
-        await this.loadProdutos();
-        await this.loadPedidos();
-        await this.loadEntregas();
-        this.setupFormHandlers();
-        this.populateSelects();
-        this.showSection('dashboard');
-        
-        // Definir data atual no formulário de pedido
-        const dataInput = document.getElementById('pedido-data');
-        if (dataInput) {
-            dataInput.value = new Date().toISOString().split('T')[0];
-        }
-    }
-
-    // ==================== MÉTODOS DE API ====================
-    
-    async apiRequest(endpoint, options = {}) {
-        try {
-            const response = await fetch(`${this.apiUrl}${endpoint}`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...options.headers
-                },
-                ...options
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('Erro da API:', errorText);
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            return await response.json();
-        } catch (error) {
-            console.error('Erro na requisição:', error);
-            this.showNotification('Erro de conexão com o servidor', 'error');
-            throw error;
-        }
-    }
-
-    // ==================== DASHBOARD ====================
-    
-    async loadDashboard() {
-        try {
-            const stats = await this.apiRequest('/dashboard');
-            
-            const totalClientesEl = document.getElementById('total-clientes');
-            const totalProdutosEl = document.getElementById('total-produtos');
-            const totalPedidosEl = document.getElementById('total-pedidos');
-            const totalEntregasEl = document.getElementById('total-entregas');
-            
-            if (totalClientesEl) totalClientesEl.textContent = stats.totalClientes || 0;
-            if (totalProdutosEl) totalProdutosEl.textContent = stats.totalProdutos || 0;
-            if (totalPedidosEl) totalPedidosEl.textContent = stats.totalPedidos || 0;
-            if (totalEntregasEl) totalEntregasEl.textContent = stats.totalEntregas || 0;
-            
-            console.log('Dashboard carregado:', stats);
-        } catch (error) {
-            console.error('Erro ao carregar dashboard:', error);
-            // Fallback para dados locais
-            const totalClientesEl = document.getElementById('total-clientes');
-            const totalProdutosEl = document.getElementById('total-produtos');
-            const totalPedidosEl = document.getElementById('total-pedidos');
-            const totalEntregasEl = document.getElementById('total-entregas');
-            
-            if (totalClientesEl) totalClientesEl.textContent = this.clientes.length;
-            if (totalProdutosEl) totalProdutosEl.textContent = this.produtos.length;
-            if (totalPedidosEl) totalPedidosEl.textContent = this.pedidos.length;
-            if (totalEntregasEl) totalEntregasEl.textContent = this.entregas.filter(e => e.status !== 'entregue').length;
-        }
-    }
-
-    // ==================== CLIENTES ====================
-    
-    async loadClientes() {
-        try {
-            this.clientes = await this.apiRequest('/clientes');
-            this.renderClientes();
-            this.populateSelects();
-        } catch (error) {
-            console.error('Erro ao carregar clientes:', error);
-            this.clientes = [];
-            this.renderClientes();
-        }
-    }
-
-    renderClientes() {
-        const tbody = document.getElementById('clientes-tbody');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
-
-        this.clientes.forEach(cliente => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>#${cliente.id}</td>
-                <td>${cliente.nome_razao || 'Nome não informado'}</td>
-                <td><span class="status-badge ${cliente.tipo === 'PF' ? 'status-confirmado' : 'status-enviado'}">${cliente.tipo}</span></td>
-                <td>${cliente.documento || 'Documento não informado'}</td>
-                <td>${cliente.email || 'Email não informado'}</td>
-                <td>${cliente.telefone || 'Telefone não informado'}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn-icon btn-edit" onclick="mercado.editarCliente(${cliente.id})" title="Editar">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                        </button>
-                        <button class="btn-icon btn-delete" onclick="mercado.excluirCliente(${cliente.id})" title="Excluir">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3,6 5,6 21,6"></polyline>
-                                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-    }
-
-    async salvarCliente(clienteData) {
-        try {
-            // Preparar dados para a API
-            const apiData = {
-                tipo: clienteData.tipo,
-                nome: clienteData.nome,
-                cpf: clienteData.cpf,
-                dataNascimento: clienteData.dataNascimento,
-                razaoSocial: clienteData.razaoSocial,
-                nomeFantasia: clienteData.nomeFantasia,
-                cnpj: clienteData.cnpj,
-                inscricaoEstadual: clienteData.inscricaoEstadual,
-                email: clienteData.email,
-                telefone: clienteData.telefone,
-                endereco: clienteData.endereco
-            };
-
-            if (this.editandoCliente) {
-                // Atualizar cliente existente
-                const result = await this.apiRequest(`/clientes/${this.editandoCliente}`, {
-                    method: 'PUT',
-                    body: JSON.stringify(apiData)
-                });
-                
-                if (result.success) {
-                    this.showNotification('Cliente atualizado com sucesso!', 'success');
-                    this.editandoCliente = null;
-                }
-            } else {
-                // Criar novo cliente
-                const result = await this.apiRequest('/clientes', {
-                    method: 'POST',
-                    body: JSON.stringify(apiData)
-                });
-
-                if (result.success) {
-                    this.showNotification('Cliente salvo com sucesso!', 'success');
-                }
-            }
-            
-            await this.loadClientes();
-            await this.loadDashboard();
-        } catch (error) {
-            console.error('Erro ao salvar cliente:', error);
-            this.showNotification('Erro ao salvar cliente', 'error');
-        }
-    }
-
-    async editarCliente(id) {
-        try {
-            const cliente = await this.apiRequest(`/clientes/${id}`);
-            this.editandoCliente = id;
-            this.preencherFormularioCliente(cliente);
-            openModal('clienteModal');
-        } catch (error) {
-            console.error('Erro ao buscar cliente:', error);
-            this.showNotification('Erro ao carregar dados do cliente', 'error');
-        }
-    }
-
-    async excluirCliente(id) {
-        if (confirm('Tem certeza que deseja excluir este cliente?')) {
-            try {
-                const result = await this.apiRequest(`/clientes/${id}`, {
-                    method: 'DELETE'
-                });
-
-                if (result.success) {
-                    this.showNotification('Cliente excluído com sucesso!', 'success');
-                    await this.loadClientes();
-                    await this.loadDashboard();
-                }
-            } catch (error) {
-                console.error('Erro ao excluir cliente:', error);
-                this.showNotification('Erro ao excluir cliente', 'error');
-            }
-        }
-    }
-
-    // ==================== PRODUTOS ====================
-    
-    async loadProdutos() {
-        try {
-            this.produtos = await this.apiRequest('/produtos');
-        } catch (error) {
-            console.error('Erro ao carregar produtos da API:', error);
-            this.produtos = [];
-        }
-        
-        if (this.userType === 'user') {
-            this.renderUserProdutos();
-        } else {
-            this.renderProdutos();
-        }
-        this.populateSelects();
-    }
-    
-
-    renderProdutos() {
-        const grid = document.getElementById('produtos-grid');
-        if (!grid) return;
-        
-        grid.innerHTML = '';
-
-        this.produtos.forEach(produto => {
-            const preco = parseFloat(produto.preco) || 0;
-            const card = document.createElement('div');
-            card.className = 'product-card';
-            card.innerHTML = `
-                <img src="${produto.imagem || 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&q=80&w=400'}" 
-                     alt="${produto.nome}" class="product-image">
-                <div class="product-content">
-                    <div class="product-category">${produto.categoria}</div>
-                    <h3 class="product-title">${produto.nome}</h3>
-                    <p class="product-description">${produto.descricao || 'Sem descrição disponível'}</p>
-                    <div class="product-footer">
-                        <span class="product-price">R$ ${preco.toFixed(2)}</span>
-                        <span class="product-stock">Estoque: ${produto.estoque}</span>
-                    </div>
-                    <div class="action-buttons" style="margin-top: 1rem;">
-                        <button class="btn-icon btn-edit" onclick="mercado.editarProduto(${produto.id})" title="Editar">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                        </button>
-                        <button class="btn-icon btn-delete" onclick="mercado.excluirProduto(${produto.id})" title="Excluir">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3,6 5,6 21,6"></polyline>
-                                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            `;
-            grid.appendChild(card);
-        });
-    }
-
-    async salvarProduto(produtoData) {
-        try {
-            const produto = {
-                ...produtoData,
-                preco: parseFloat(produtoData.preco) || 0,
-                estoque: parseInt(produtoData.estoque) || 0
-            };
-
-            if (this.editandoProduto) {
-                // Atualizar produto existente via API
-                const result = await this.apiRequest(`/produtos/${this.editandoProduto}`, {
-                    method: 'PUT',
-                    body: JSON.stringify(produto)
-                });
-                
-                if (result.success) {
-                    this.showNotification('Produto atualizado com sucesso!', 'success');
-                    this.editandoProduto = null;
-                }
-            } else {
-                // Criar novo produto via API
-                const result = await this.apiRequest('/produtos', {
-                    method: 'POST',
-                    body: JSON.stringify(produto)
-                });
-                
-                if (result.success) {
-                    this.showNotification('Produto salvo com sucesso!', 'success');
-                }
-            }
-            
-            await this.loadProdutos();
-            await this.loadDashboard();
-        } catch (error) {
-            console.error('Erro ao salvar produto:', error);
-            this.showNotification('Erro ao salvar produto', 'error');
-        }
-    }
-
-    async editarProduto(id) {
-        try {
-            const produto = await this.apiRequest(`/produtos/${id}`);
-            this.editandoProduto = id;
-            this.preencherFormularioProduto(produto);
-            openModal('produtoModal');
-        } catch (error) {
-            console.error('Erro ao buscar produto:', error);
-            this.showNotification('Erro ao carregar dados do produto', 'error');
-        }
-    }
-
-    async excluirProduto(id) {
-        if (confirm('Tem certeza que deseja excluir este produto?')) {
-            try {
-                const result = await this.apiRequest(`/produtos/${id}`, {
-                    method: 'DELETE'
-                });
-
-                if (result.success) {
-                    this.showNotification(result.message || 'Produto excluído com sucesso!', 'success');
-                    await this.loadProdutos();
-                    await this.loadDashboard();
-                }
-            } catch (error) {
-                console.error('Erro ao excluir produto:', error);
-                this.showNotification('Erro ao excluir produto', 'error');
-            }
-        }
-    }
-
-    // ==================== PEDIDOS ====================
-    
-    async loadPedidos() {
-        try {
-            this.pedidos = await this.apiRequest('/pedidos');
-            this.renderPedidos();
-        } catch (error) {
-            console.error('Erro ao carregar pedidos:', error);
-            this.pedidos = [];
-            this.renderPedidos();
-        }
-    }
-
-    renderPedidos() {
-        const tbody = document.getElementById('pedidos-tbody');
-        if (!tbody) return;
-        
-        tbody.innerHTML = '';
-
-        this.pedidos.forEach(pedido => {
-            const total = parseFloat(pedido.total) || 0;
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>#${pedido.id}</td>
-                <td>${pedido.cliente_nome || 'Cliente não encontrado'}</td>
-                <td>${new Date(pedido.data_pedido || pedido.created_at).toLocaleDateString('pt-BR')}</td>
-                <td>R$ ${total.toFixed(2)}</td>
-                <td><span class="status-badge status-${pedido.status}">${pedido.status}</span></td>
-                <td>Múltiplas formas</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn-icon btn-edit" onclick="mercado.verPedido(${pedido.id})" title="Ver Detalhes">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                        </button>
-                        <button class="btn-icon btn-delete" onclick="mercado.excluirPedido(${pedido.id})" title="Excluir">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3,6 5,6 21,6"></polyline>
-                                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-    }
-
-    async salvarPedido(pedidoData) {
-        try {
-            // Preparar dados para a API
-            const apiData = {
-                id_conta: parseInt(pedidoData.cliente),
-                data_pedido: pedidoData.data,
-                produtos: pedidoData.produtos.map(p => ({
-                    id_produto: parseInt(p.produtoId),
-                    quantidade: parseInt(p.quantidade)
-                })),
-                formas_pagamento: pedidoData.formasPagamento.map(fp => ({
-                    tipo: fp.tipo,
-                    valor: parseFloat(fp.valor)
-                })),
-                observacoes: pedidoData.observacoes
-            };
-
-            const result = await this.apiRequest('/pedidos', {
-                method: 'POST',
-                body: JSON.stringify(apiData)
-            });
-
-            if (result.success) {
-                this.showNotification('Pedido criado com sucesso!', 'success');
-                await this.loadPedidos();
-                await this.loadEntregas();
-                await this.loadDashboard();
-            }
-        } catch (error) {
-            console.error('Erro ao criar pedido:', error);
-            this.showNotification('Erro ao criar pedido', 'error');
-        }
-    }
-
-    verPedido(id) {
-        const pedido = this.pedidos.find(p => p.id === id);
-        if (pedido) {
-            const total = parseFloat(pedido.total) || 0;
-            alert(`Detalhes do Pedido #${pedido.id}\nCliente: ${pedido.cliente_nome}\nTotal: R$ ${total.toFixed(2)}\nStatus: ${pedido.status}`);
-        }
-    }
-
-    async excluirPedido(id) {
-        if (confirm('Tem certeza que deseja excluir este pedido?'))  {
-            try {
-                const result = await this.apiRequest(`/pedidos/${id}`, {
-                    method: 'DELETE'
-                });
-                if (result.success) {
-                    this.showNotification('Pedido excluído com sucesso!', 'success');
-                    await this.loadPedidos();
-                    await this.loadDashboard();
-                }
-            } catch (error) {
-                console.error('Erro ao excluir pedido:', error);
-                this.showNotification('Erro ao excluir pedido', 'error');
-            }
-        }
-    }
-
-    // ==================== ENTREGAS ====================
-    
-    async loadEntregas() {
-        try {
-            this.entregas = await this.apiRequest('/entregas');
-            if (this.userType === 'user') {
-                this.renderUserEntregas();
-            } else {
-                this.renderEntregas();
-            }
-        } catch (error) {
-            console.error('Erro ao carregar entregas:', error);
-            this.entregas = [];
-            if (this.userType === 'user') {
-                this.renderUserEntregas();
-            } else {
-                this.renderEntregas();
-            }
-        }
-    }
-
-    renderEntregas() {
-        const grid = document.getElementById('entregas-grid');
-        if (!grid) return;
-        
-        grid.innerHTML = '';
-
-        this.entregas.forEach(entrega => {
-            let botaoAtualizacao = '';
-            if (entrega.status === 'confirmada') {
-                botaoAtualizacao = `
-                    <div style="color: var(--success-color); font-weight: 600; text-align: center; padding: 0.5rem;">
-                        ✅ Entrega confirmada pelo cliente
-                    </div>
-                `;
-            } else {
-                botaoAtualizacao = `
-                    <button class="btn btn-small btn-primary" onclick="mercado.atualizarStatusEntrega(${entrega.id})">
-                        Atualizar Status
+    produtos.forEach(produto => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+            <div class="product-image">
+                <img src="${produto.imagem || 'https://via.placeholder.com/200x150?text=Produto'}" alt="${produto.nome}">
+            </div>
+            <div class="product-info">
+                <h3>${produto.nome}</h3>
+                <p class="product-category">${produto.categoria}</p>
+                <p class="product-description">${produto.descricao || ''}</p>
+                <div class="product-price">${formatCurrency(produto.preco)}</div>
+                <div class="product-stock">Estoque: ${produto.estoque}</div>
+                <div class="product-actions">
+                    <button class="btn btn-primary" onclick="adicionarAoCarrinho(${produto.id})" ${produto.estoque <= 0 ? 'disabled' : ''}>
+                        ${produto.estoque <= 0 ? 'Sem Estoque' : 'Adicionar ao Carrinho'}
                     </button>
-                `;
-            }
-
-            const card = document.createElement('div');
-            card.className = 'entrega-card';
-            card.innerHTML = `
-                <div class="entrega-header">
-                    <span class="entrega-id">Entrega #${entrega.id}</span>
-                    <span class="entrega-status status-${entrega.status}">${entrega.status}</span>
                 </div>
-                <div class="entrega-info">
-                    <div class="entrega-detail">
-                        <label>Cliente</label>
-                        <span>${entrega.cliente_nome || 'Cliente não encontrado'}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Pedido</label>
-                        <span>#${entrega.pedido_id}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Data de Criação</label>
-                        <span>${new Date(entrega.created_at).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Previsão de Entrega</label>
-                        <span>${entrega.previsao_entrega ? new Date(entrega.previsao_entrega).toLocaleDateString('pt-BR') : 'Não definida'}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Código de Rastreio</label>
-                        <span class="codigo-rastreio">${entrega.codigo_rastreio}</span>
-                    </div>
-                    <div class="entrega-detail">
-                        <label>Endereço</label>
-                        <span>${entrega.endereco_entrega}</span>
-                    </div>
-                </div>
-                <div class="action-buttons" style="margin-top: 1rem;">
-                    ${botaoAtualizacao}
-                </div>
-            `;
-            grid.appendChild(card);
-        });
-    }
-
-    async atualizarStatusEntrega(id) {
-        const entrega = this.entregas.find(e => e.id === id);
-        if (entrega) {
-            const statusOptions = ['preparando', 'enviado', 'transito', 'entregue'];
-            const currentIndex = statusOptions.indexOf(entrega.status);
-            const nextIndex = (currentIndex + 1) % statusOptions.length;
-            const novoStatus = statusOptions[nextIndex];
-            
-            try {
-                const result = await this.apiRequest(`/entregas/${id}/status`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ status: novoStatus })
-                });
-
-                if (result.success) {
-                    this.showNotification('Status da entrega atualizado!', 'success');
-                    await this.loadEntregas();
-                    await this.loadDashboard();
-                }
-            } catch (error) {
-                console.error('Erro ao atualizar entrega:', error);
-                this.showNotification('Erro ao atualizar entrega', 'error');
-            }
-        }
-    }
-
-    filtrarEntregas() {
-        const filtroStatus = document.getElementById('filtro-status');
-        if (!filtroStatus) return;
-        
-        const filtro = filtroStatus.value;
-        const cards = document.querySelectorAll('.entrega-card');
-        
-        cards.forEach(card => {
-            const statusElement = card.querySelector('.entrega-status');
-            if (statusElement) {
-                const status = statusElement.textContent.trim();
-                if (!filtro || status === filtro) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            }
-        });
-    }
-
-    // ==================== NAVEGAÇÃO ====================
-    
-    showSection(sectionId) {
-        const sections = document.querySelectorAll('.section');
-        sections.forEach(section => section.classList.remove('active'));
-        
-        const targetSection = document.getElementById(sectionId);
-        if (targetSection) {
-            targetSection.classList.add('active');
-            
-            // Carregar dados específicos da seção
-            if (this.userType === 'user') {
-                switch(sectionId) {
-                    case 'user-carrinho':
-                        this.renderCarrinho();
-                        break;
-                    case 'user-pedidos':
-                        this.loadUserPedidos();
-                        break;
-                    case 'user-entregas':
-                        this.loadUserEntregas();
-                        break;
-                }
-            }
-        }
-    }
-
-    updateActiveNav(activeLink) {
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => link.classList.remove('active'));
-        activeLink.classList.add('active');
-    }
-
-    // ==================== FORMULÁRIOS ====================
-    
-    setupFormHandlers() {
-        // Toggle campos PF/PJ
-        window.toggleClienteFields = () => {
-            const tipoRadio = document.querySelector('input[name="tipo"]:checked');
-            if (!tipoRadio) return;
-            
-            const tipo = tipoRadio.value;
-            const camposPF = document.getElementById('campos-pf');
-            const camposPJ = document.getElementById('campos-pj');
-            
-            if (!camposPF || !camposPJ) return;
-            
-            if (tipo === 'PF') {
-                camposPF.style.display = 'block';
-                camposPJ.style.display = 'none';
-                // Limpar campos PJ
-                camposPJ.querySelectorAll('input').forEach(input => input.value = '');
-            } else {
-                camposPF.style.display = 'none';
-                camposPJ.style.display = 'block';
-                // Limpar campos PF
-                camposPF.querySelectorAll('input').forEach(input => input.value = '');
-            }
-        };
-
-        // Toggle campos checkout
-        window.toggleCheckoutFields = () => {
-            const tipoRadio = document.querySelector('input[name="tipoCliente"]:checked');
-            if (!tipoRadio) {
-                console.error('No tipoCliente radio button selected');
-                return;
-            }
-            
-            const tipo = tipoRadio.value;
-            const camposPF = document.getElementById('checkout-campos-pf');
-            const camposPJ = document.getElementById('checkout-campos-pj');
-            
-            if (!camposPF || !camposPJ) {
-                console.error('Checkout fields not found');
-                return;
-            }
-            
-            if (tipo === 'PF') {
-                camposPF.style.display = 'block';
-                camposPJ.style.display = 'none';
-                camposPJ.querySelectorAll('input').forEach(input => input.value = '');
-            } else {
-                camposPF.style.display = 'none';
-                camposPJ.style.display = 'block';
-                camposPF.querySelectorAll('input').forEach(input => input.value = '');
-            }
-        };
-
-        // Adicionar produto ao pedido
-        window.adicionarProdutoPedido = () => {
-            const container = document.getElementById('produtos-pedido');
-            if (!container) return;
-            
-            const div = document.createElement('div');
-            div.className = 'produto-item';
-            div.innerHTML = `
-                <select name="produto" required>
-                    <option value="">Selecione um produto...</option>
-                    ${this.produtos.map(p => {
-                        const preco = parseFloat(p.preco) || 0;
-                        return `<option value="${p.id}">${p.nome} - R$ ${preco.toFixed(2)}</option>`;
-                    }).join('')}
-                </select>
-                <input type="number" name="quantidade" placeholder="Qtd" min="1" required>
-                <button type="button" class="btn btn-small btn-danger" onclick="removerProdutoPedido(this)">Remover</button>
-            `;
-            container.appendChild(div);
-        };
-
-        window.removerProdutoPedido = (button) => {
-            button.parentElement.remove();
-        };
-
-        // Adicionar forma de pagamento
-        window.adicionarFormaPagamento = () => {
-            const container = document.getElementById('formas-pagamento');
-            if (!container) return;
-            
-            const div = document.createElement('div');
-            div.className = 'pagamento-item';
-            div.innerHTML = `
-                <select name="formaPagamento" required>
-                    <option value="">Selecione...</option>
-                    <option value="dinheiro">Dinheiro</option>
-                    <option value="cartao-credito">Cartão de Crédito</option>
-                    <option value="cartao-debito">Cartão de Débito</option>
-                    <option value="pix">PIX</option>
-                    <option value="boleto">Boleto</option>
-                </select>
-                <input type="number" name="valorPagamento" placeholder="Valor (R$)" step="0.01" min="0" required>
-                <button type="button" class="btn btn-small btn-danger" onclick="removerFormaPagamento(this)">Remover</button>
-            `;
-            container.appendChild(div);
-        };
-
-        window.removerFormaPagamento = (button) => {
-            button.parentElement.remove();
-        };
-    }
-
-    populateSelects() {
-        // Popular select de clientes no pedido
-        const selectCliente = document.getElementById('pedido-cliente');
-        if (selectCliente) {
-            selectCliente.innerHTML = '<option value="">Selecione um cliente...</option>';
-            this.clientes.forEach(cliente => {
-                const nome = cliente.nome_razao || 'Nome não informado';
-                selectCliente.innerHTML += `<option value="${cliente.id}">${nome} (${cliente.tipo})</option>`;
-            });
-        }
-
-        // Popular selects de produtos
-        const selectsProduto = document.querySelectorAll('select[name="produto"]');
-        selectsProduto.forEach(select => {
-            select.innerHTML = '<option value="">Selecione um produto...</option>';
-            this.produtos.forEach(produto => {
-                const preco = parseFloat(produto.preco) || 0;
-                select.innerHTML += `<option value="${produto.id}">${produto.nome} - R$ ${preco.toFixed(2)}</option>`;
-            });
-        });
-    }
-
-    // Preencher formulários para edição
-    preencherFormularioCliente(cliente) {
-        const tipoRadio = document.querySelector(`input[name="tipo"][value="${cliente.tipo}"]`);
-        if (tipoRadio) {
-            tipoRadio.checked = true;
-            toggleClienteFields();
-        }
-        
-        if (cliente.tipo === 'PF') {
-            const nomeInput = document.getElementById('nome');
-            const cpfInput = document.getElementById('cpf');
-            const dataNascInput = document.getElementById('data-nascimento');
-            
-            if (nomeInput) nomeInput.value = cliente.nome || '';
-            if (cpfInput) cpfInput.value = cliente.cpf || '';
-            if (dataNascInput) dataNascInput.value = cliente.dataNascimento || '';
-        } else {
-            const razaoSocialInput = document.getElementById('razao-social');
-            const cnpjInput = document.getElementById('cnpj');
-            const inscricaoEstadualInput = document.getElementById('inscricao-estadual');
-            
-            if (razaoSocialInput) razaoSocialInput.value = cliente.razaoSocial || '';
-            if (cnpjInput) cnpjInput.value = cliente.cnpj || '';
-            if (inscricaoEstadualInput) inscricaoEstadualInput.value = cliente.inscricaoEstadual || '';
-        }
-        
-        const emailInput = document.getElementById('email');
-        const telefoneInput = document.getElementById('telefone');
-        const enderecoInput = document.getElementById('endereco');
-        
-        if (emailInput) emailInput.value = cliente.email || '';
-        if (telefoneInput) telefoneInput.value = cliente.telefone || '';
-        if (enderecoInput) enderecoInput.value = cliente.endereco || '';
-    }
-
-    preencherFormularioProduto(produto) {
-        const nomeInput = document.getElementById('produto-nome');
-        const categoriaInput = document.getElementById('produto-categoria');
-        const descricaoInput = document.getElementById('produto-descricao');
-        const precoInput = document.getElementById('produto-preco');
-        const estoqueInput = document.getElementById('produto-estoque');
-        const imagemInput = document.getElementById('produto-imagem');
-        
-        if (nomeInput) nomeInput.value = produto.nome || '';
-        if (categoriaInput) categoriaInput.value = produto.categoria || '';
-        if (descricaoInput) descricaoInput.value = produto.descricao || '';
-        if (precoInput) precoInput.value = produto.preco || '';
-        if (estoqueInput) estoqueInput.value = produto.estoque || '';
-        if (imagemInput) imagemInput.value = produto.imagem || '';
-    }
-
-    // ==================== UTILITÁRIOS ====================
-    
-    showNotification(message, type = 'info') {
-        // Criar elemento de notificação
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 1rem 1.5rem;
-            border-radius: 0.5rem;
-            color: white;
-            font-weight: 500;
-            z-index: 10000;
-            max-width: 300px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
+            </div>
         `;
+        grid.appendChild(card);
+    });
+}
+
+// Salvar produto
+async function salvarProduto(event) {
+    event.preventDefault();
+    
+    try {
+        const formData = new FormData(event.target);
+        const produtoData = {
+            nome: formData.get('nome'),
+            categoria: formData.get('categoria'),
+            descricao: formData.get('descricao'),
+            preco: parseFloat(formData.get('preco')),
+            estoque: parseInt(formData.get('estoque')),
+            imagem: formData.get('imagem')
+        };
         
-        // Definir cor baseada no tipo
-        switch (type) {
-            case 'success':
-                notification.style.backgroundColor = '#10b981';
-                break;
-            case 'error':
-                notification.style.backgroundColor = '#ef4444';
-                break;
-            case 'warning':
-                notification.style.backgroundColor = '#f59e0b';
-                break;
-            default:
-                notification.style.backgroundColor = '#2563eb';
+        const response = await apiRequest('/produtos', {
+            method: 'POST',
+            body: JSON.stringify(produtoData)
+        });
+        
+        if (response.success) {
+            showNotification('Produto salvo com sucesso!', 'success');
+            closeModal('produtoModal');
+            carregarProdutos();
+            event.target.reset();
+        }
+    } catch (error) {
+        showNotification('Erro ao salvar produto: ' + error.message, 'error');
+    }
+}
+
+// Excluir produto
+async function excluirProduto(id) {
+    if (confirm('Tem certeza que deseja excluir este produto?')) {
+        try {
+            const response = await apiRequest(`/produtos/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.success) {
+                showNotification('Produto excluído com sucesso!', 'success');
+                carregarProdutos();
+            }
+        } catch (error) {
+            showNotification('Erro ao excluir produto: ' + error.message, 'error');
+        }
+    }
+}
+
+// ==================== FUNÇÕES DO CARRINHO ====================
+
+function adicionarAoCarrinho(produtoId) {
+    const produto = produtos.find(p => p.id === produtoId);
+    if (!produto) return;
+    
+    const itemExistente = carrinho.find(item => item.id === produtoId);
+    
+    if (itemExistente) {
+        if (itemExistente.quantidade < produto.estoque) {
+            itemExistente.quantidade++;
+        } else {
+            showNotification('Quantidade máxima em estoque atingida', 'warning');
+            return;
+        }
+    } else {
+        carrinho.push({
+            id: produto.id,
+            nome: produto.nome,
+            preco: produto.preco,
+            quantidade: 1,
+            imagem: produto.imagem
+        });
+    }
+    
+    atualizarCarrinho();
+    showNotification('Produto adicionado ao carrinho!', 'success');
+}
+
+function removerDoCarrinho(produtoId) {
+    carrinho = carrinho.filter(item => item.id !== produtoId);
+    atualizarCarrinho();
+}
+
+function alterarQuantidade(produtoId, novaQuantidade) {
+    const item = carrinho.find(item => item.id === produtoId);
+    if (item) {
+        if (novaQuantidade <= 0) {
+            removerDoCarrinho(produtoId);
+        } else {
+            item.quantidade = novaQuantidade;
+            atualizarCarrinho();
+        }
+    }
+}
+
+function atualizarCarrinho() {
+    const cartCount = document.getElementById('cart-count');
+    const cartItems = document.getElementById('cart-items');
+    const cartTotal = document.getElementById('cart-total');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    
+    // Atualizar contador
+    const totalItens = carrinho.reduce((total, item) => total + item.quantidade, 0);
+    cartCount.textContent = totalItens;
+    
+    // Atualizar itens
+    cartItems.innerHTML = '';
+    let total = 0;
+    
+    carrinho.forEach(item => {
+        const subtotal = item.preco * item.quantidade;
+        total += subtotal;
+        
+        const itemElement = document.createElement('div');
+        itemElement.className = 'cart-item';
+        itemElement.innerHTML = `
+            <div class="cart-item-image">
+                <img src="${item.imagem || 'https://via.placeholder.com/80x60?text=Produto'}" alt="${item.nome}">
+            </div>
+            <div class="cart-item-info">
+                <h4>${item.nome}</h4>
+                <p>${formatCurrency(item.preco)}</p>
+            </div>
+            <div class="cart-item-quantity">
+                <button onclick="alterarQuantidade(${item.id}, ${item.quantidade - 1})">-</button>
+                <span>${item.quantidade}</span>
+                <button onclick="alterarQuantidade(${item.id}, ${item.quantidade + 1})">+</button>
+            </div>
+            <div class="cart-item-total">
+                ${formatCurrency(subtotal)}
+            </div>
+            <button class="cart-item-remove" onclick="removerDoCarrinho(${item.id})">×</button>
+        `;
+        cartItems.appendChild(itemElement);
+    });
+    
+    // Atualizar total
+    cartTotal.textContent = formatCurrency(total);
+    
+    // Habilitar/desabilitar botão de checkout
+    checkoutBtn.disabled = carrinho.length === 0;
+    
+    if (carrinho.length === 0) {
+        cartItems.innerHTML = '<p class="empty-cart">Seu carrinho está vazio</p>';
+    }
+}
+
+// ==================== FUNÇÕES DE PEDIDOS ====================
+
+async function carregarPedidos() {
+    try {
+        pedidos = await apiRequest('/pedidos');
+        renderizarPedidos();
+    } catch (error) {
+        console.error('Erro ao carregar pedidos:', error);
+        showNotification('Erro ao carregar pedidos', 'error');
+    }
+}
+
+function renderizarPedidos() {
+    const tbody = document.getElementById('pedidos-tbody');
+    tbody.innerHTML = '';
+    
+    pedidos.forEach(pedido => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${pedido.id}</td>
+            <td>${pedido.cliente_nome}</td>
+            <td>${formatDate(pedido.data_pedido)}</td>
+            <td>${formatCurrency(pedido.total)}</td>
+            <td><span class="status-badge status-${pedido.status}">${pedido.status}</span></td>
+            <td>${pedido.forma_pagamento || 'N/A'}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function carregarPedidosUser() {
+    try {
+        if (!currentUser || !currentUser.id) {
+            const pedidosGrid = document.getElementById('user-pedidos-grid');
+            pedidosGrid.innerHTML = '<p>Você ainda não fez nenhum pedido.</p>';
+            return;
+        }
+
+        // Buscar pedidos do usuário atual
+        const response = await apiRequest(`/pedidos/cliente/${currentUser.id}`);
+        const pedidosUsuario = response || [];
+        
+        renderizarPedidosUser(pedidosUsuario);
+    } catch (error) {
+        console.error('Erro ao carregar pedidos do usuário:', error);
+        const pedidosGrid = document.getElementById('user-pedidos-grid');
+        pedidosGrid.innerHTML = '<p>Erro ao carregar pedidos. Tente novamente.</p>';
+    }
+}
+
+function renderizarPedidosUser(pedidosUsuario) {
+    const pedidosGrid = document.getElementById('user-pedidos-grid');
+    pedidosGrid.innerHTML = '';
+    
+    if (!pedidosUsuario || pedidosUsuario.length === 0) {
+        pedidosGrid.innerHTML = '<p>Você ainda não fez nenhum pedido.</p>';
+        return;
+    }
+    
+    pedidosUsuario.forEach(pedido => {
+        const card = document.createElement('div');
+        card.className = 'pedido-card';
+        card.innerHTML = `
+            <div class="pedido-header">
+                <h3>Pedido #${pedido.id}</h3>
+                <span class="status-badge status-${pedido.status}">${getStatusText(pedido.status)}</span>
+            </div>
+            <div class="pedido-info">
+                <p><strong>Data:</strong> ${formatDate(pedido.data_pedido)}</p>
+                <p><strong>Total:</strong> ${formatCurrency(pedido.total)}</p>
+                <p><strong>Forma de Pagamento:</strong> ${getFormaPagamentoText(pedido.forma_pagamento)}</p>
+                ${pedido.observacoes ? `<p><strong>Observações:</strong> ${pedido.observacoes}</p>` : ''}
+            </div>
+            <div class="pedido-actions">
+                <button class="btn btn-primary btn-small" onclick="verDetalhesPedido(${pedido.id})">Ver Detalhes</button>
+                ${pedido.codigo_rastreio ? `<button class="btn btn-secondary btn-small" onclick="rastrearPedido('${pedido.codigo_rastreio}')">Rastrear</button>` : ''}
+            </div>
+        `;
+        pedidosGrid.appendChild(card);
+    });
+}
+
+function getStatusText(status) {
+    const statusMap = {
+        'pendente': 'Pendente',
+        'confirmado': 'Confirmado',
+        'preparando': 'Preparando',
+        'enviado': 'Enviado',
+        'entregue': 'Entregue',
+        'finalizado': 'Finalizado',
+        'cancelado': 'Cancelado'
+    };
+    return statusMap[status] || status;
+}
+
+function getFormaPagamentoText(formaPagamento) {
+    const formaMap = {
+        'dinheiro': 'Dinheiro',
+        'cartao-credito': 'Cartão de Crédito',
+        'cartao-debito': 'Cartão de Débito',
+        'pix': 'PIX',
+        'boleto': 'Boleto'
+    };
+    return formaMap[formaPagamento] || formaPagamento;
+}
+
+function verDetalhesPedido(pedidoId) {
+    // Implementar modal com detalhes do pedido
+    showNotification('Funcionalidade de detalhes em desenvolvimento', 'info');
+}
+
+function rastrearPedido(codigoRastreio) {
+    showNotification(`Rastreando pedido: ${codigoRastreio}`, 'info');
+}
+
+// Finalizar compra
+function finalizarCompra() {
+    if (carrinho.length === 0) return;
+    
+    // Atualizar modal de checkout
+    const checkoutItems = document.getElementById('checkout-items');
+    const checkoutTotal = document.getElementById('checkout-total');
+    
+    checkoutItems.innerHTML = '';
+    let total = 0;
+    
+    carrinho.forEach(item => {
+        const subtotal = item.preco * item.quantidade;
+        total += subtotal;
+        
+        const itemElement = document.createElement('div');
+        itemElement.className = 'checkout-item';
+        itemElement.innerHTML = `
+            <span>${item.nome} x ${item.quantidade}</span>
+            <span>${formatCurrency(subtotal)}</span>
+        `;
+        checkoutItems.appendChild(itemElement);
+    });
+    
+    checkoutTotal.textContent = formatCurrency(total);
+    openModal('checkoutModal');
+}
+
+// Processar compra
+async function processarCompra(event) {
+    event.preventDefault();
+    
+    try {
+        const formaPagamento = document.getElementById('checkout-pagamento').value;
+        
+        if (!currentUser || !currentUser.id) {
+            showNotification('Usuário não identificado', 'error');
+            return;
         }
         
-        notification.textContent = message;
-        document.body.appendChild(notification);
+        const pedidoData = {
+            id_conta: currentUser.id || 1, // Para demo
+            data_pedido: new Date().toISOString().split('T')[0],
+            produtos: carrinho.map(item => ({
+                id_produto: item.id,
+                quantidade: item.quantidade
+            })),
+            formas_pagamento: [{
+                tipo: formaPagamento,
+                valor: carrinho.reduce((total, item) => total + (item.preco * item.quantidade), 0)
+            }],
+            observacoes: 'Pedido realizado via sistema web'
+        };
         
-        // Animar entrada
-        setTimeout(() => {
-            notification.style.transform = 'translateX(0)';
-        }, 100);
+        const response = await apiRequest('/pedidos', {
+            method: 'POST',
+            body: JSON.stringify(pedidoData)
+        });
         
-        // Remover após 3 segundos
-        setTimeout(() => {
-            notification.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                if (document.body.contains(notification)) {
-                    document.body.removeChild(notification);
+        if (response.success) {
+            showNotification('Pedido realizado com sucesso!', 'success');
+            carrinho = [];
+            atualizarCarrinho();
+            closeModal('checkoutModal');
+            carregarPedidosUser();
+        }
+    } catch (error) {
+        showNotification('Erro ao processar pedido: ' + error.message, 'error');
+    }
+}
+
+// ==================== FUNÇÕES DE ENTREGAS ====================
+
+async function carregarEntregas() {
+    try {
+        entregas = await apiRequest('/entregas');
+        renderizarEntregas();
+    } catch (error) {
+        console.error('Erro ao carregar entregas:', error);
+        showNotification('Erro ao carregar entregas', 'error');
+    }
+}
+
+function renderizarEntregas() {
+    const grid = document.getElementById('entregas-grid');
+    grid.innerHTML = '';
+    
+    entregas.forEach(entrega => {
+        const card = document.createElement('div');
+        card.className = 'entrega-card';
+        card.innerHTML = `
+            <div class="entrega-header">
+                <h3>Pedido #${entrega.pedido_id}</h3>
+                <span class="status-badge status-${entrega.status}">${entrega.status}</span>
+            </div>
+            <div class="entrega-info">
+                <p><strong>Cliente:</strong> ${entrega.cliente_nome}</p>
+                <p><strong>Código:</strong> ${entrega.codigo_rastreio}</p>
+                <p><strong>Endereço:</strong> ${entrega.endereco_entrega}</p>
+                <p><strong>Previsão:</strong> ${formatDate(entrega.previsao_entrega)}</p>
+                ${entrega.data_confirmacao ? `<p><strong>Confirmado em:</strong> ${formatDate(entrega.data_confirmacao)}</p>` : ''}
+            </div>
+            <div class="entrega-actions">
+                ${entrega.status === 'confirmada' ? 
+                    '<p class="status-final">✅ Entrega confirmada pelo cliente</p>' :
+                    `<select onchange="atualizarStatusEntrega(${entrega.id}, this.value)">
+                        <option value="">Alterar Status</option>
+                        <option value="preparando" ${entrega.status === 'preparando' ? 'selected' : ''}>Preparando</option>
+                        <option value="enviado" ${entrega.status === 'enviado' ? 'selected' : ''}>Enviado</option>
+                        <option value="transito" ${entrega.status === 'transito' ? 'selected' : ''}>Em Trânsito</option>
+                        <option value="entregue" ${entrega.status === 'entregue' ? 'selected' : ''}>Entregue</option>
+                    </select>`
                 }
-            }, 300);
-        }, 3000);
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+async function carregarEntregasUser() {
+    try {
+        if (!currentUser || !currentUser.id) {
+            const entregasGrid = document.getElementById('user-entregas-grid');
+            entregasGrid.innerHTML = '<p>Você não possui entregas no momento.</p>';
+            return;
+        }
+
+        // Buscar entregas do usuário atual
+        const response = await apiRequest(`/entregas/cliente/${currentUser.id}`);
+        const entregasUsuario = response || [];
+        
+        renderizarEntregasUser(entregasUsuario);
+    } catch (error) {
+        console.error('Erro ao carregar entregas do usuário:', error);
+        const entregasGrid = document.getElementById('user-entregas-grid');
+        entregasGrid.innerHTML = '<p>Erro ao carregar entregas. Tente novamente.</p>';
     }
 }
 
-// ==================== FUNÇÕES GLOBAIS ====================
-
-function logout() {
-    mercado.logout();
+function renderizarEntregasUser(entregasUsuario) {
+    const entregasGrid = document.getElementById('user-entregas-grid');
+    entregasGrid.innerHTML = '';
+    
+    if (!entregasUsuario || entregasUsuario.length === 0) {
+        entregasGrid.innerHTML = '<p>Você não possui entregas no momento.</p>';
+        return;
+    }
+    
+    entregasUsuario.forEach(entrega => {
+        const card = document.createElement('div');
+        card.className = 'entrega-card';
+        card.innerHTML = `
+            <div class="entrega-header">
+                <h3>Pedido #${entrega.pedido_id}</h3>
+                <span class="status-badge status-${entrega.status}">${getStatusText(entrega.status)}</span>
+            </div>
+            <div class="entrega-info">
+                <p><strong>Código de Rastreio:</strong> ${entrega.codigo_rastreio}</p>
+                <p><strong>Endereço:</strong> ${entrega.endereco_entrega}</p>
+                <p><strong>Previsão de Entrega:</strong> ${formatDate(entrega.previsao_entrega)}</p>
+                ${entrega.data_envio ? `<p><strong>Data de Envio:</strong> ${formatDate(entrega.data_envio)}</p>` : ''}
+                ${entrega.data_entrega ? `<p><strong>Data de Entrega:</strong> ${formatDate(entrega.data_entrega)}</p>` : ''}
+            </div>
+            <div class="entrega-actions">
+                ${entrega.status === 'entregue' && entrega.status !== 'confirmada' ? 
+                    `<button class="btn btn-primary btn-small" onclick="confirmarEntrega(${entrega.id})">Confirmar Recebimento</button>` : 
+                    ''
+                }
+            </div>
+        `;
+        entregasGrid.appendChild(card);
+    });
 }
 
-// Funções globais para modais
+async function confirmarEntrega(entregaId) {
+    try {
+        console.log('Confirmando entrega com ID:', entregaId);
+        const response = await apiRequest(`/entregas/${entregaId}/confirmar`, {
+            method: 'PUT'
+        });
+        
+        if (response.success) {
+            showNotification('Entrega confirmada com sucesso!', 'success');
+            carregarEntregasUser();
+            carregarPedidosUser();
+        }
+    } catch (error) {
+        const errorMessage = error.message.includes('HTTP error! status: 500')
+            ? 'Erro no servidor ao confirmar entrega. Tente novamente mais tarde.'
+            : error.message.includes('HTTP error! status: 404')
+            ? 'Entrega não encontrada.'
+            : error.message.includes('HTTP error! status:  bers')
+            ? 'Entrega já confirmada ou não está no status correto.'
+            : 'Erro ao confirmar entrega: ' + error.message;
+        showNotification(errorMessage, 'error');
+    }
+}
+
+async function atualizarStatusEntrega(id, novoStatus) {
+    if (!novoStatus) return;
+    
+    try {
+        const response = await apiRequest(`/entregas/${id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: novoStatus })
+        });
+        
+        if (response.success) {
+            showNotification('Status da entrega atualizado!', 'success');
+            carregarEntregas();
+        }
+    } catch (error) {
+        showNotification('Erro ao atualizar entrega: ' + error.message, 'error');
+    }
+}
+
+
+// ==================== FUNÇÕES DE MODAL ====================
+
 function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'block';
-    }
+    document.getElementById(modalId).style.display = 'block';
 }
 
 function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.style.display = 'none';
-    }
-    if (modalId === 'checkoutModal') {
-        const form = document.getElementById('checkoutForm');
-        if (form) {
-            form.reset();
-        }
-        if (typeof toggleCheckoutFields === 'function') {
-            toggleCheckoutFields(); 
-        }
+    document.getElementById(modalId).style.display = 'none';
+}
+
+// Fechar modal clicando fora
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.style.display = 'none';
     }
 }
 
-// Funções para salvar dados
-async function salvarCliente(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    const clienteData = Object.fromEntries(formData.entries());
-    
-    await mercado.salvarCliente(clienteData);
-    closeModal('clienteModal');
-}
+// ==================== FUNÇÕES DE FILTRO ====================
 
-async function salvarProduto(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
-    const produtoData = Object.fromEntries(formData.entries());
+function filtrarProdutos() {
+    const categoria = document.getElementById('categoria-filter').value;
+    const produtosFiltrados = categoria ? produtos.filter(p => p.categoria === categoria) : produtos;
     
-    await mercado.salvarProduto(produtoData);
-    closeModal('produtoModal');
-}
-
-async function salvarPedido(event) {
-    event.preventDefault();
-    const formData = new FormData(event.target);
+    const grid = document.getElementById('user-produtos-grid');
+    grid.innerHTML = '';
     
-    // Processar produtos
-    const produtos = [];
-    const produtoSelects = document.querySelectorAll('#produtos-pedido select[name="produto"]');
-    const quantidadeInputs = document.querySelectorAll('#produtos-pedido input[name="quantidade"]');
-    
-    for (let i = 0; i < produtoSelects.length; i++) {
-        if (produtoSelects[i].value && quantidadeInputs[i].value) {
-            produtos.push({
-                produtoId: produtoSelects[i].value,
-                quantidade: parseInt(quantidadeInputs[i].value)
-            });
-        }
-    }
-    
-    // Processar formas de pagamento
-    const formasPagamento = [];
-    const pagamentoSelects = document.querySelectorAll('#formas-pagamento select[name="formaPagamento"]');
-    const valorInputs = document.querySelectorAll('#formas-pagamento input[name="valorPagamento"]');
-    
-    for (let i = 0; i < pagamentoSelects.length; i++) {
-        if (pagamentoSelects[i].value && valorInputs[i].value) {
-            formasPagamento.push({
-                tipo: pagamentoSelects[i].value,
-                valor: parseFloat(valorInputs[i].value)
-            });
-        }
-    }
-    
-    const pedidoData = {
-        cliente: formData.get('cliente'),
-        data: formData.get('data'),
-        produtos,
-        formasPagamento,
-        observacoes: formData.get('observacoes')
-    };
-    
-    await mercado.salvarPedido(pedidoData);
-    closeModal('pedidoModal');
-}
-
-async function processarCompra(event) {
-    await mercado.processarCompra(event);
+    produtosFiltrados.forEach(produto => {
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+            <div class="product-image">
+                <img src="${produto.imagem || 'https://via.placeholder.com/200x150?text=Produto'}" alt="${produto.nome}">
+            </div>
+            <div class="product-info">
+                <h3>${produto.nome}</h3>
+                <p class="product-category">${produto.categoria}</p>
+                <p class="product-description">${produto.descricao || ''}</p>
+                <div class="product-price">${formatCurrency(produto.preco)}</div>
+                <div class="product-stock">Estoque: ${produto.estoque}</div>
+                <div class="product-actions">
+                    <button class="btn btn-primary" onclick="adicionarAoCarrinho(${produto.id})" ${produto.estoque <= 0 ? 'disabled' : ''}>
+                        ${produto.estoque <= 0 ? 'Sem Estoque' : 'Adicionar ao Carrinho'}
+                    </button>
+                </div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
 }
 
 function filtrarEntregas() {
-    mercado.filtrarEntregas();
+    const status = document.getElementById('filtro-status').value;
+    const entregasFiltradas = status ? entregas.filter(e => e.status === status) : entregas;
+    
+    const grid = document.getElementById('entregas-grid');
+    grid.innerHTML = '';
+    
+    entregasFiltradas.forEach(entrega => {
+        const card = document.createElement('div');
+        card.className = 'entrega-card';
+        card.innerHTML = `
+            <div class="entrega-header">
+                <h3>Pedido #${entrega.pedido_id}</h3>
+                <span class="status-badge status-${entrega.status}">${entrega.status}</span>
+            </div>
+            <div class="entrega-info">
+                <p><strong>Cliente:</strong> ${entrega.cliente_nome}</p>
+                <p><strong>Código:</strong> ${entrega.codigo_rastreio}</p>
+                <p><strong>Endereço:</strong> ${entrega.endereco_entrega}</p>
+                <p><strong>Previsão:</strong> ${formatDate(entrega.previsao_entrega)}</p>
+            </div>
+            <div class="entrega-actions">
+                <select onchange="atualizarStatusEntrega(${entrega.id}, this.value)">
+                    <option value="">Alterar Status</option>
+                    <option value="preparando" ${entrega.status === 'preparando' ? 'selected' : ''}>Preparando</option>
+                    <option value="enviado" ${entrega.status === 'enviado' ? 'selected' : ''}>Enviado</option>
+                    <option value="transito" ${entrega.status === 'transito' ? 'selected' : ''}>Em Trânsito</option>
+                    <option value="entregue" ${entrega.status === 'entregue' ? 'selected' : ''}>Entregue</option>
+                </select>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
 }
 
-function filtrarProdutos() {
-    mercado.filtrarProdutos();
+// ==================== FUNÇÕES DE UTILIDADE PARA FORMULÁRIOS ====================
+
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+    input.setAttribute('type', type);
 }
 
-function finalizarCompra() {
-    mercado.finalizarCompra();
-}
+// ==================== INICIALIZAÇÃO ====================
 
-// Função para alternar entre usuário e admin (para teste)
-function switchToAdmin() {
-    mercado.switchToAdmin();
-}
-
-function switchToUser() {
-    mercado.switchToUser();
-}
-
-// Inicializar sistema
-const mercado = new MercadoDigital();
+// Inicializar aplicação quando DOM estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Sistema Mercado Digital inicializado');
+    
+    // Verificar se o servidor está rodando
+    apiRequest('/dashboard')
+        .then(() => {
+            console.log('Conexão com servidor estabelecida');
+        })
+        .catch(() => {
+            console.warn('Servidor não está rodando - usando modo demo');
+            showNotification('Servidor não conectado - usando modo demonstração', 'warning');
+        });
+    
+    // Inicializar carrinho vazio
+    atualizarCarrinho();
+});
